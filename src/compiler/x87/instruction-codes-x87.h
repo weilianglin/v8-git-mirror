@@ -1,0 +1,113 @@
+// Copyright 2014 the V8 project authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef V8_COMPILER_X87_INSTRUCTION_CODES_X87_H_
+#define V8_COMPILER_X87_INSTRUCTION_CODES_X87_H_
+
+namespace v8 {
+namespace internal {
+namespace compiler {
+
+// X87-specific opcodes that specify which assembly sequence to emit.
+// Most opcodes specify a single instruction.
+#define TARGET_ARCH_OPCODE_LIST(V) \
+  V(X87Add)                       \
+  V(X87And)                       \
+  V(X87Cmp)                       \
+  V(X87Test)                      \
+  V(X87Or)                        \
+  V(X87Xor)                       \
+  V(X87Sub)                       \
+  V(X87Imul)                      \
+  V(X87ImulHigh)                  \
+  V(X87UmulHigh)                  \
+  V(X87Idiv)                      \
+  V(X87Udiv)                      \
+  V(X87Not)                       \
+  V(X87Neg)                       \
+  V(X87Shl)                       \
+  V(X87Shr)                       \
+  V(X87Sar)                       \
+  V(X87Ror)                       \
+  V(X87Lzcnt)                     \
+  V(SSEFloat64Cmp)                 \
+  V(SSEFloat64Add)                 \
+  V(SSEFloat64Sub)                 \
+  V(SSEFloat64Mul)                 \
+  V(SSEFloat64Div)                 \
+  V(SSEFloat64Mod)                 \
+  V(SSEFloat64Max)                 \
+  V(SSEFloat64Min)                 \
+  V(SSEFloat64Sqrt)                \
+  V(SSEFloat64Round)               \
+  V(SSECvtss2sd)                   \
+  V(SSECvtsd2ss)                   \
+  V(SSEFloat64ToInt32)             \
+  V(SSEFloat64ToUint32)            \
+  V(SSEInt32ToFloat64)             \
+  V(SSEUint32ToFloat64)            \
+  V(SSEFloat64ExtractLowWord32)    \
+  V(SSEFloat64ExtractHighWord32)   \
+  V(SSEFloat64InsertLowWord32)     \
+  V(SSEFloat64InsertHighWord32)    \
+  V(SSEFloat64LoadLowWord32)       \
+  V(AVXFloat64Add)                 \
+  V(AVXFloat64Sub)                 \
+  V(AVXFloat64Mul)                 \
+  V(AVXFloat64Div)                 \
+  V(AVXFloat64Max)                 \
+  V(AVXFloat64Min)                 \
+  V(X87Movsxbl)                   \
+  V(X87Movzxbl)                   \
+  V(X87Movb)                      \
+  V(X87Movsxwl)                   \
+  V(X87Movzxwl)                   \
+  V(X87Movw)                      \
+  V(X87Movl)                      \
+  V(X87Movss)                     \
+  V(X87Movsd)                     \
+  V(X87Lea)                       \
+  V(X87Push)                      \
+  V(X87StoreWriteBarrier)         \
+  V(X87StackCheck)
+
+
+// Addressing modes represent the "shape" of inputs to an instruction.
+// Many instructions support multiple addressing modes. Addressing modes
+// are encoded into the InstructionCode of the instruction and tell the
+// code generator after register allocation which assembler method to call.
+//
+// We use the following local notation for addressing modes:
+//
+// M = memory operand
+// R = base register
+// N = index register * N for N in {1, 2, 4, 8}
+// I = immediate displacement (int32_t)
+
+#define TARGET_ADDRESSING_MODE_LIST(V) \
+  V(MR)   /* [%r1            ] */      \
+  V(MRI)  /* [%r1         + K] */      \
+  V(MR1)  /* [%r1 + %r2*1    ] */      \
+  V(MR2)  /* [%r1 + %r2*2    ] */      \
+  V(MR4)  /* [%r1 + %r2*4    ] */      \
+  V(MR8)  /* [%r1 + %r2*8    ] */      \
+  V(MR1I) /* [%r1 + %r2*1 + K] */      \
+  V(MR2I) /* [%r1 + %r2*2 + K] */      \
+  V(MR4I) /* [%r1 + %r2*3 + K] */      \
+  V(MR8I) /* [%r1 + %r2*4 + K] */      \
+  V(M1)   /* [      %r2*1    ] */      \
+  V(M2)   /* [      %r2*2    ] */      \
+  V(M4)   /* [      %r2*4    ] */      \
+  V(M8)   /* [      %r2*8    ] */      \
+  V(M1I)  /* [      %r2*1 + K] */      \
+  V(M2I)  /* [      %r2*2 + K] */      \
+  V(M4I)  /* [      %r2*4 + K] */      \
+  V(M8I)  /* [      %r2*8 + K] */      \
+  V(MI)   /* [              K] */
+
+}  // namespace compiler
+}  // namespace internal
+}  // namespace v8
+
+#endif  // V8_COMPILER_X87_INSTRUCTION_CODES_X87_H_
