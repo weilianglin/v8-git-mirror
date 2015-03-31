@@ -17,8 +17,13 @@ class X87OperandGenerator FINAL : public OperandGenerator {
       : OperandGenerator(selector) {}
 
   InstructionOperand UseByteRegister(Node* node) {
-    // TODO(dcarney): relax constraint.
+    // TODO(titzer): encode byte register use constraints.
     return UseFixed(node, edx);
+  }
+
+  InstructionOperand DefineAsByteRegister(Node* node) {
+    // TODO(titzer): encode byte register def constraints.
+    return DefineAsRegister(node);
   }
 
   bool CanBeImmediate(Node* node) {
@@ -119,20 +124,20 @@ class X87OperandGenerator FINAL : public OperandGenerator {
 };
 
 
+#if 0
 static void VisitRRFloat64(InstructionSelector* selector,
                            InstructionCode opcode, Node* node) {
   X87OperandGenerator g(selector);
   selector->Emit(opcode, g.DefineAsRegister(node),
                  g.UseRegister(node->InputAt(0)));
 }
-
+#endif
 
 void InstructionSelector::VisitLoad(Node* node) {
   MachineType rep = RepresentationOf(OpParameter<LoadRepresentation>(node));
   MachineType typ = TypeOf(OpParameter<LoadRepresentation>(node));
 
   ArchOpcode opcode;
-  // TODO(titzer): signed/unsigned small loads
   switch (rep) {
     case kRepFloat32:
       opcode = kX87Movss;
@@ -366,7 +371,6 @@ static void VisitBinop(InstructionSelector* selector, Node* node,
 
   outputs[output_count++] = g.DefineSameAsFirst(node);
   if (cont->IsSet()) {
-    // TODO(turbofan): Use byte register here.
     outputs[output_count++] = g.DefineAsRegister(cont->result());
   }
 
@@ -375,9 +379,8 @@ static void VisitBinop(InstructionSelector* selector, Node* node,
   DCHECK_GE(arraysize(inputs), input_count);
   DCHECK_GE(arraysize(outputs), output_count);
 
-  Instruction* instr = selector->Emit(cont->Encode(opcode), output_count,
-                                      outputs, input_count, inputs);
-  if (cont->IsBranch()) instr->MarkAsControl();
+  selector->Emit(cont->Encode(opcode), output_count, outputs, input_count,
+                 inputs);
 }
 
 
@@ -603,149 +606,82 @@ void InstructionSelector::VisitUint32Mod(Node* node) {
 
 
 void InstructionSelector::VisitChangeFloat32ToFloat64(Node* node) {
-  X87OperandGenerator g(this);
-  Emit(kSSECvtss2sd, g.DefineAsRegister(node), g.Use(node->InputAt(0)));
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitChangeInt32ToFloat64(Node* node) {
-  X87OperandGenerator g(this);
-  Emit(kSSEInt32ToFloat64, g.DefineAsRegister(node), g.Use(node->InputAt(0)));
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitChangeUint32ToFloat64(Node* node) {
-  X87OperandGenerator g(this);
-  Emit(kSSEUint32ToFloat64, g.DefineAsRegister(node), g.Use(node->InputAt(0)));
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitChangeFloat64ToInt32(Node* node) {
-  X87OperandGenerator g(this);
-  Emit(kSSEFloat64ToInt32, g.DefineAsRegister(node), g.Use(node->InputAt(0)));
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitChangeFloat64ToUint32(Node* node) {
-  X87OperandGenerator g(this);
-  Emit(kSSEFloat64ToUint32, g.DefineAsRegister(node), g.Use(node->InputAt(0)));
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitTruncateFloat64ToFloat32(Node* node) {
-  X87OperandGenerator g(this);
-  Emit(kSSECvtsd2ss, g.DefineAsRegister(node), g.Use(node->InputAt(0)));
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitFloat64Add(Node* node) {
-  X87OperandGenerator g(this);
-  if (IsSupported(AVX)) {
-    Emit(kAVXFloat64Add, g.DefineAsRegister(node),
-         g.UseRegister(node->InputAt(0)), g.Use(node->InputAt(1)));
-  } else {
-    Emit(kSSEFloat64Add, g.DefineSameAsFirst(node),
-         g.UseRegister(node->InputAt(0)), g.Use(node->InputAt(1)));
-  }
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitFloat64Sub(Node* node) {
-  X87OperandGenerator g(this);
-  Float64BinopMatcher m(node);
-  if (m.left().IsMinusZero() && m.right().IsFloat64RoundDown() &&
-      CanCover(m.node(), m.right().node())) {
-    if (m.right().InputAt(0)->opcode() == IrOpcode::kFloat64Sub &&
-        CanCover(m.right().node(), m.right().InputAt(0))) {
-      Float64BinopMatcher mright0(m.right().InputAt(0));
-      if (mright0.left().IsMinusZero()) {
-        Emit(kSSEFloat64Round | MiscField::encode(kRoundUp),
-             g.DefineAsRegister(node), g.UseRegister(mright0.right().node()));
-        return;
-      }
-    }
-  }
-  if (IsSupported(AVX)) {
-    Emit(kAVXFloat64Sub, g.DefineAsRegister(node),
-         g.UseRegister(node->InputAt(0)), g.Use(node->InputAt(1)));
-  } else {
-    Emit(kSSEFloat64Sub, g.DefineSameAsFirst(node),
-         g.UseRegister(node->InputAt(0)), g.Use(node->InputAt(1)));
-  }
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitFloat64Mul(Node* node) {
-  X87OperandGenerator g(this);
-  if (IsSupported(AVX)) {
-    Emit(kAVXFloat64Mul, g.DefineAsRegister(node),
-         g.UseRegister(node->InputAt(0)), g.Use(node->InputAt(1)));
-  } else {
-    Emit(kSSEFloat64Mul, g.DefineSameAsFirst(node),
-         g.UseRegister(node->InputAt(0)), g.Use(node->InputAt(1)));
-  }
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitFloat64Div(Node* node) {
-  X87OperandGenerator g(this);
-  if (IsSupported(AVX)) {
-    Emit(kAVXFloat64Div, g.DefineAsRegister(node),
-         g.UseRegister(node->InputAt(0)), g.Use(node->InputAt(1)));
-  } else {
-    Emit(kSSEFloat64Div, g.DefineSameAsFirst(node),
-         g.UseRegister(node->InputAt(0)), g.Use(node->InputAt(1)));
-  }
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitFloat64Mod(Node* node) {
-  X87OperandGenerator g(this);
-  InstructionOperand temps[] = {g.TempRegister(eax)};
-  Emit(kSSEFloat64Mod, g.DefineSameAsFirst(node),
-       g.UseRegister(node->InputAt(0)), g.UseRegister(node->InputAt(1)), 1,
-       temps);
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitFloat64Max(Node* node) {
-  X87OperandGenerator g(this);
-  if (IsSupported(AVX)) {
-    Emit(kAVXFloat64Max, g.DefineAsRegister(node),
-         g.UseRegister(node->InputAt(0)), g.Use(node->InputAt(1)));
-  } else {
-    Emit(kSSEFloat64Max, g.DefineSameAsFirst(node),
-         g.UseRegister(node->InputAt(0)), g.Use(node->InputAt(1)));
-  }
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitFloat64Min(Node* node) {
-  X87OperandGenerator g(this);
-  if (IsSupported(AVX)) {
-    Emit(kAVXFloat64Min, g.DefineAsRegister(node),
-         g.UseRegister(node->InputAt(0)), g.Use(node->InputAt(1)));
-  } else {
-    Emit(kSSEFloat64Min, g.DefineSameAsFirst(node),
-         g.UseRegister(node->InputAt(0)), g.Use(node->InputAt(1)));
-  }
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitFloat64Sqrt(Node* node) {
-  X87OperandGenerator g(this);
-  Emit(kSSEFloat64Sqrt, g.DefineAsRegister(node), g.Use(node->InputAt(0)));
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitFloat64RoundDown(Node* node) {
-  VisitRRFloat64(this, kSSEFloat64Round | MiscField::encode(kRoundDown), node);
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitFloat64RoundTruncate(Node* node) {
-  VisitRRFloat64(this, kSSEFloat64Round | MiscField::encode(kRoundToZero),
-                 node);
+  UNIMPLEMENTED();
 }
 
 
@@ -823,12 +759,10 @@ void VisitCompare(InstructionSelector* selector, InstructionCode opcode,
   X87OperandGenerator g(selector);
   if (cont->IsBranch()) {
     selector->Emit(cont->Encode(opcode), g.NoOutput(), left, right,
-                   g.Label(cont->true_block()),
-                   g.Label(cont->false_block()))->MarkAsControl();
+                   g.Label(cont->true_block()), g.Label(cont->false_block()));
   } else {
     DCHECK(cont->IsSet());
-    // TODO(titzer): Needs byte register.
-    selector->Emit(cont->Encode(opcode), g.DefineAsRegister(cont->result()),
+    selector->Emit(cont->Encode(opcode), g.DefineAsByteRegister(cont->result()),
                    left, right);
   }
 }
@@ -849,9 +783,8 @@ void VisitCompare(InstructionSelector* selector, InstructionCode opcode,
 // Shared routine for multiple float64 compare operations (inputs commuted).
 void VisitFloat64Compare(InstructionSelector* selector, Node* node,
                          FlagsContinuation* cont) {
-  Node* const left = node->InputAt(0);
-  Node* const right = node->InputAt(1);
-  VisitCompare(selector, kSSEFloat64Cmp, right, left, cont, false);
+  // TODO X87Turbo
+  UNIMPLEMENTED();
 }
 
 
@@ -889,7 +822,7 @@ void VisitWordCompare(InstructionSelector* selector, Node* node,
       InstructionCode opcode = cont->Encode(kX87StackCheck);
       if (cont->IsBranch()) {
         selector->Emit(opcode, g.NoOutput(), g.Label(cont->true_block()),
-                       g.Label(cont->false_block()))->MarkAsControl();
+                       g.Label(cont->false_block()));
       } else {
         DCHECK(cont->IsSet());
         selector->Emit(opcode, g.DefineAsRegister(cont->result()));
@@ -1031,8 +964,7 @@ void InstructionSelector::VisitSwitch(Node* node, BasicBlock* default_branch,
       DCHECK_LT(value + 2, input_count);
       inputs[value + 2] = g.Label(branch);
     }
-    Emit(kArchTableSwitch, 0, nullptr, input_count, inputs, 0, nullptr)
-        ->MarkAsControl();
+    Emit(kArchTableSwitch, 0, nullptr, input_count, inputs, 0, nullptr);
     return;
   }
 
@@ -1047,8 +979,7 @@ void InstructionSelector::VisitSwitch(Node* node, BasicBlock* default_branch,
     inputs[index * 2 + 2 + 0] = g.TempImmediate(value);
     inputs[index * 2 + 2 + 1] = g.Label(branch);
   }
-  Emit(kArchLookupSwitch, 0, nullptr, input_count, inputs, 0, nullptr)
-      ->MarkAsControl();
+  Emit(kArchLookupSwitch, 0, nullptr, input_count, inputs, 0, nullptr);
 }
 
 
@@ -1125,39 +1056,26 @@ void InstructionSelector::VisitFloat64LessThanOrEqual(Node* node) {
 
 
 void InstructionSelector::VisitFloat64ExtractLowWord32(Node* node) {
-  X87OperandGenerator g(this);
-  Emit(kSSEFloat64ExtractLowWord32, g.DefineAsRegister(node),
-       g.Use(node->InputAt(0)));
+  // TODO X87 Turbo
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitFloat64ExtractHighWord32(Node* node) {
-  X87OperandGenerator g(this);
-  Emit(kSSEFloat64ExtractHighWord32, g.DefineAsRegister(node),
-       g.Use(node->InputAt(0)));
+  // TODO X87 Turbo
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitFloat64InsertLowWord32(Node* node) {
-  X87OperandGenerator g(this);
-  Node* left = node->InputAt(0);
-  Node* right = node->InputAt(1);
-  Float64Matcher mleft(left);
-  if (mleft.HasValue() && (bit_cast<uint64_t>(mleft.Value()) >> 32) == 0u) {
-    Emit(kSSEFloat64LoadLowWord32, g.DefineAsRegister(node), g.Use(right));
-    return;
-  }
-  Emit(kSSEFloat64InsertLowWord32, g.DefineSameAsFirst(node),
-       g.UseRegister(left), g.Use(right));
+  // TODO X87 Turbo
+  UNIMPLEMENTED();
 }
 
 
 void InstructionSelector::VisitFloat64InsertHighWord32(Node* node) {
-  X87OperandGenerator g(this);
-  Node* left = node->InputAt(0);
-  Node* right = node->InputAt(1);
-  Emit(kSSEFloat64InsertHighWord32, g.DefineSameAsFirst(node),
-       g.UseRegister(left), g.Use(right));
+  // TODO X87 Turbo
+  UNIMPLEMENTED();
 }
 
 
@@ -1168,10 +1086,6 @@ InstructionSelector::SupportedMachineOperatorFlags() {
       MachineOperatorBuilder::kFloat64Max |
       MachineOperatorBuilder::kFloat64Min |
       MachineOperatorBuilder::kWord32ShiftIsSafe;
-  if (CpuFeatures::IsSupported(SSE4_1)) {
-    flags |= MachineOperatorBuilder::kFloat64RoundDown |
-             MachineOperatorBuilder::kFloat64RoundTruncate;
-  }
   return flags;
 }
 

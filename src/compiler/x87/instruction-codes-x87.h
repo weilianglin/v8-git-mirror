@@ -31,33 +31,6 @@ namespace compiler {
   V(X87Sar)                       \
   V(X87Ror)                       \
   V(X87Lzcnt)                     \
-  V(SSEFloat64Cmp)                 \
-  V(SSEFloat64Add)                 \
-  V(SSEFloat64Sub)                 \
-  V(SSEFloat64Mul)                 \
-  V(SSEFloat64Div)                 \
-  V(SSEFloat64Mod)                 \
-  V(SSEFloat64Max)                 \
-  V(SSEFloat64Min)                 \
-  V(SSEFloat64Sqrt)                \
-  V(SSEFloat64Round)               \
-  V(SSECvtss2sd)                   \
-  V(SSECvtsd2ss)                   \
-  V(SSEFloat64ToInt32)             \
-  V(SSEFloat64ToUint32)            \
-  V(SSEInt32ToFloat64)             \
-  V(SSEUint32ToFloat64)            \
-  V(SSEFloat64ExtractLowWord32)    \
-  V(SSEFloat64ExtractHighWord32)   \
-  V(SSEFloat64InsertLowWord32)     \
-  V(SSEFloat64InsertHighWord32)    \
-  V(SSEFloat64LoadLowWord32)       \
-  V(AVXFloat64Add)                 \
-  V(AVXFloat64Sub)                 \
-  V(AVXFloat64Mul)                 \
-  V(AVXFloat64Div)                 \
-  V(AVXFloat64Max)                 \
-  V(AVXFloat64Min)                 \
   V(X87Movsxbl)                   \
   V(X87Movzxbl)                   \
   V(X87Movb)                      \
@@ -71,7 +44,6 @@ namespace compiler {
   V(X87Push)                      \
   V(X87StoreWriteBarrier)         \
   V(X87StackCheck)
-
 
 // Addressing modes represent the "shape" of inputs to an instruction.
 // Many instructions support multiple addressing modes. Addressing modes
