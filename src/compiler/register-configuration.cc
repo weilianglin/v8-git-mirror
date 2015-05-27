@@ -21,8 +21,8 @@ class ArchDefaultRegisterConfiguration : public RegisterConfiguration {
  public:
   ArchDefaultRegisterConfiguration()
       : RegisterConfiguration(Register::kMaxNumAllocatableRegisters,
-                              DoubleRegister::kMaxNumAllocatableRegisters,
-                              DoubleRegister::NumAllocatableAliasedRegisters(),
+                              DoubleRegister::NumAllocatableRegistersForTurbo(),
+                              DoubleRegister::NumAllocatableAliasedRegistersForTurbo(),
                               general_register_name_table_,
                               double_register_name_table_) {
     DCHECK_EQ(Register::kMaxNumAllocatableRegisters,

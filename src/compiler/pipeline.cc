@@ -1168,6 +1168,14 @@ Handle<Code> Pipeline::ScheduleAndGenerateCode(
   Linkage linkage(call_descriptor);
   Run<InstructionSelectionPhase>(&linkage);
 
+  if (FLAG_trace_turbo_graph) {
+    OFStream os(stdout);
+    PrintableInstructionSequence printable = {
+        RegisterConfiguration::ArchDefault(), data->sequence()};
+    os << "----- Instruction sequence after instruction selection ---\n"
+        << printable;
+  }
+
   if (FLAG_trace_turbo && !data->MayHaveUnverifiableGraph()) {
     TurboCfgFile tcf(isolate());
     tcf << AsC1V("CodeGen", data->schedule(), data->source_positions(),
@@ -1181,7 +1189,13 @@ Handle<Code> Pipeline::ScheduleAndGenerateCode(
   }
 
   data->DeleteGraphZone();
-
+  if (FLAG_trace_turbo_graph) {
+    OFStream os(stdout);
+    PrintableInstructionSequence printable = {
+        RegisterConfiguration::ArchDefault(), data->sequence()};
+    os << "----- Instruction sequence after delete Graph Zone-----\n"
+        << printable;
+    }
   BeginPhaseKind("register allocation");
 
   bool run_verifier = FLAG_turbo_verify_allocation;
@@ -1268,15 +1282,43 @@ void Pipeline::AllocateRegisters(const RegisterConfiguration* config,
     osr_helper.SetupFrame(data->frame());
   }
 
+  if (FLAG_trace_turbo_graph) {
+    OFStream os(stdout);
+    PrintableInstructionSequence printable = {
+        RegisterConfiguration::ArchDefault(), data->sequence()};
+    os << "----- Instruction sequence after Initialize reg allocation -----\n"
+        << printable;
+  }
+
   Run<MeetRegisterConstraintsPhase>();
+
+  if (FLAG_trace_turbo_graph) {
+    OFStream os(stdout);
+    PrintableInstructionSequence printable = {
+        RegisterConfiguration::ArchDefault(), data->sequence()};
+    os << "----- Instruction sequence after register check -----\n"
+       << printable;
+  }
+
   Run<ResolvePhisPhase>();
+
+  if (FLAG_trace_turbo_graph) {
+    OFStream os(stdout);
+    PrintableInstructionSequence printable = {
+        RegisterConfiguration::ArchDefault(), data->sequence()};
+    os << "----- Instruction sequence after resolving phi -----\n"
+         << printable;
+  }
+
   Run<BuildLiveRangesPhase>();
+
   if (FLAG_trace_turbo_graph) {
     OFStream os(stdout);
     PrintableInstructionSequence printable = {config, data->sequence()};
     os << "----- Instruction sequence before register allocation -----\n"
        << printable;
   }
+
   if (verifier != nullptr) {
     CHECK(!data->register_allocation_data()->ExistsUseWithoutDefinition());
   }

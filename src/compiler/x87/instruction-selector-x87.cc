@@ -26,6 +26,11 @@ class X87OperandGenerator FINAL : public OperandGenerator {
     return DefineAsRegister(node);
   }
 
+  InstructionOperand CreateImmediate(int imm) {
+    int index = sequence()->AddImmediate(Constant(imm));
+    return ImmediateOperand(index);
+  }
+
   bool CanBeImmediate(Node* node) {
     switch (node->opcode()) {
       case IrOpcode::kInt32Constant:
@@ -606,82 +611,141 @@ void InstructionSelector::VisitUint32Mod(Node* node) {
 
 
 void InstructionSelector::VisitChangeFloat32ToFloat64(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  Emit(kX87Float32ToFloat64, g.DefineAsFixed(node, stX_0),
+       g.Use(node->InputAt(0)));
 }
 
 
 void InstructionSelector::VisitChangeInt32ToFloat64(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  Emit(kX87Int32ToFloat64, g.DefineAsFixed(node, stX_0),
+       g.Use(node->InputAt(0)));
 }
 
 
 void InstructionSelector::VisitChangeUint32ToFloat64(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  Emit(kX87Uint32ToFloat64, g.DefineAsFixed(node, stX_0),
+       g.UseRegister(node->InputAt(0)));
 }
 
 
 void InstructionSelector::VisitChangeFloat64ToInt32(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  Emit(kX87Float64ToInt32, g.DefineAsRegister(node),
+       g.Use(node->InputAt(0)));
 }
 
 
 void InstructionSelector::VisitChangeFloat64ToUint32(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  Emit(kX87Float64ToUint32, g.DefineAsRegister(node),
+       g.Use(node->InputAt(0)));
 }
 
 
 void InstructionSelector::VisitTruncateFloat64ToFloat32(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  Emit(kX87Float64ToFloat32, g.DefineAsFixed(node, stX_0),
+       g.Use(node->InputAt(0)));
 }
 
 
 void InstructionSelector::VisitFloat64Add(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
+  Emit(kX87Float64Add, g.DefineAsFixed(node, stX_0), 0, NULL);
+  Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
 }
 
 
 void InstructionSelector::VisitFloat64Sub(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  //Emit(kX87Float64Sub, g.DefineAsFixed(node, stX_0),
+    //   g.Use(node->InputAt(0)), g.Use(node->InputAt(1)));
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
+  Emit(kX87Float64Sub, g.DefineAsFixed(node, stX_0), 0, NULL);
+  Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
 }
 
 
 void InstructionSelector::VisitFloat64Mul(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  //Emit(kX87Float64Mul, g.DefineAsFixed(node, stX_0),
+  //     g.Use(node->InputAt(0)), g.Use(node->InputAt(1)));
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
+  Emit(kX87Float64Mul, g.DefineAsFixed(node, stX_0), 0, NULL);
+  Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
 }
 
 
 void InstructionSelector::VisitFloat64Div(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  //Emit(kX87Float64Div, g.DefineAsFixed(node, stX_0),
+  //     g.Use(node->InputAt(0)), g.Use(node->InputAt(1)));
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
+  Emit(kX87Float64Div, g.DefineAsFixed(node, stX_0), 0, NULL);
+  Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
 }
 
 
 void InstructionSelector::VisitFloat64Mod(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  //Emit(kX87Float64Mod, g.DefineAsFixed(node, stX_0),
+  //     g.UseUnique(node->InputAt(0)), g.Use(node->InputAt(1)));
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
+  Emit(kX87Float64Mod, g.DefineAsFixed(node, stX_0), 0, NULL);
+  Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
 }
 
 
 void InstructionSelector::VisitFloat64Max(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
+  Emit(kX87Float64Max, g.DefineAsFixed(node, stX_0), 0, NULL);
+  Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
+//  Emit(kX87Float64Max, g.DefineAsFixed(node, stX_0),
+//       g.Use(node->InputAt(0)), g.Use(node->InputAt(1)));
 }
 
 
 void InstructionSelector::VisitFloat64Min(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  //Emit(kX87Float64Min, g.DefineAsFixed(node, stX_0),
+  //     g.Use(node->InputAt(0)), g.Use(node->InputAt(1)));
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
+  Emit(kX87Float64Min, g.DefineAsFixed(node, stX_0), 0, NULL);
+  Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
 }
 
 
 void InstructionSelector::VisitFloat64Sqrt(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  Emit(kX87Float64Sqrt, g.DefineAsFixed(node, stX_0),
+       g.Use(node->InputAt(0)));
 }
 
 
 void InstructionSelector::VisitFloat64RoundDown(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  Emit(kX87Float64Round | MiscField::encode(kRoundDown),
+       g.UseFixed(node, stX_0), g.Use(node->InputAt(0)));
 }
 
 
 void InstructionSelector::VisitFloat64RoundTruncate(Node* node) {
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  Emit(kX87Float64Round | MiscField::encode(kRoundToZero),
+       g.UseFixed(node, stX_0), g.Use(node->InputAt(0)));
 }
 
 
@@ -783,8 +847,18 @@ void VisitCompare(InstructionSelector* selector, InstructionCode opcode,
 // Shared routine for multiple float64 compare operations (inputs commuted).
 void VisitFloat64Compare(InstructionSelector* selector, Node* node,
                          FlagsContinuation* cont) {
-  // TODO X87Turbo
-  UNIMPLEMENTED();
+  X87OperandGenerator g(selector);
+  selector->Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
+  selector->Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
+  //VisitCompare(selector, kX87Float64Cmp, g.Use(left), g.Use(right), cont);
+  if (cont->IsBranch()) {
+    selector->Emit(cont->Encode(kX87Float64Cmp), g.NoOutput(),
+    		       g.Label(cont->true_block()), g.Label(cont->false_block()));
+  } else {
+    DCHECK(cont->IsSet());
+    selector->Emit(cont->Encode(kX87Float64Cmp), g.DefineAsByteRegister(cont->result()));
+  }
+  selector->Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
 }
 
 
@@ -1056,26 +1130,40 @@ void InstructionSelector::VisitFloat64LessThanOrEqual(Node* node) {
 
 
 void InstructionSelector::VisitFloat64ExtractLowWord32(Node* node) {
-  // TODO X87 Turbo
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  Emit(kX87Float64ExtractLowWord32, g.DefineAsRegister(node),
+       g.Use(node->InputAt(0)));
 }
 
 
 void InstructionSelector::VisitFloat64ExtractHighWord32(Node* node) {
-  // TODO X87 Turbo
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  Emit(kX87Float64ExtractHighWord32, g.DefineAsRegister(node),
+       g.Use(node->InputAt(0)));
 }
 
 
 void InstructionSelector::VisitFloat64InsertLowWord32(Node* node) {
-  // TODO X87 Turbo
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  Node* left = node->InputAt(0);
+  Node* right = node->InputAt(1);
+  /* Float64Matcher mleft(left);
+  if (mleft.HasValue() && (bit_cast<uint64_t>(mleft.Value()) >> 32) == 0u) {
+    Emit(kX87Float64LoadLowWord32, g.DefineAsRegister(node), g.Use(right));
+    return;
+  }
+  */
+  Emit(kX87Float64InsertLowWord32, g.UseFixed(node, stX_0),
+       g.UseRegister(left), g.UseRegister(right));
 }
 
 
 void InstructionSelector::VisitFloat64InsertHighWord32(Node* node) {
-  // TODO X87 Turbo
-  UNIMPLEMENTED();
+  X87OperandGenerator g(this);
+  Node* left = node->InputAt(0);
+  Node* right = node->InputAt(1);
+  Emit(kX87Float64InsertHighWord32, g.UseFixed(node, stX_0),
+       g.UseRegister(left), g.UseRegister(right));
 }
 
 

@@ -767,12 +767,12 @@ Debug.setScriptBreakPoint = function(type, script_id_or_name,
   var script_break_point =
       new ScriptBreakPoint(type, script_id_or_name, opt_line, opt_column,
                            opt_groupId, opt_position_alignment);
-
+//print("1111111111111111111111111");
   // Assign number to the new script break point and add it.
   script_break_point.number_ = next_break_point_number++;
   script_break_point.setCondition(opt_condition);
   script_break_points.push(script_break_point);
-
+//print("222222222222222222222222");
   // Run through all scripts to see if this script break point matches any
   // loaded scripts.
   var scripts = this.scripts();
@@ -782,6 +782,7 @@ Debug.setScriptBreakPoint = function(type, script_id_or_name,
     }
   }
 
+//print("333333333333333333333333");
   return script_break_point.number();
 };
 
