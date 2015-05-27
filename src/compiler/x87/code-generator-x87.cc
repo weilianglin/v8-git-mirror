@@ -1391,14 +1391,12 @@ void CodeGenerator::AssemblePrologue() {
     // Allocate the stack slots used by this frame.
     __ sub(esp, Immediate(stack_slots * kPointerSize));
   }
-  __ fld1();
 }
 
 
 void CodeGenerator::AssembleReturn() {
   CallDescriptor* descriptor = linkage()->GetIncomingDescriptor();
   int stack_slots = frame()->GetSpillSlotCount();
-  __ fstp(0);
   if (descriptor->kind() == CallDescriptor::kCallAddress) {
     const RegList saves = descriptor->CalleeSavedRegisters();
     if (frame()->GetRegisterSaveAreaSize() > 0) {
