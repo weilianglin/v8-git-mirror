@@ -439,6 +439,9 @@ class RegisterAllocator FINAL : public ZoneObject {
 
   // Phase 3: compute liveness of all virtual register.
   void BuildLiveRanges();
+  void TraceLiveRanges(const char* name);
+  void TraceLiveRange(LiveRange* range, const char* type,
+                               Zone* zone);
   bool ExistsUseWithoutDefinition();
 
   // Phase 4: compute register assignments.

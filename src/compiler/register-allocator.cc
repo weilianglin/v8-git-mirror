@@ -1224,6 +1224,10 @@ void RegisterAllocator::MeetConstraintsBetween(Instruction* first,
         AllocateFixed(cur_input, gap_index + 1, is_tagged);
         AddGapMove(gap_index, GapInstruction::END, input_copy, cur_input);
       }
+      //else if (cur_input->HasSlotPolicy() && cur_input->IsConstant()) {
+      // 	 auto input_copy = cur_input->CopyUnconstrained(code_zone());
+      //  AddGapMove(gap_index, GapInstruction::END, input_copy, cur_input);
+      // }
     }
 
     // Handle "output same as input" for second instruction.
@@ -1749,6 +1753,81 @@ void RegisterAllocator::ResolveControlFlow(const InstructionBlock* block,
 }
 
 
+void RegisterAllocator::TraceLiveRanges(const char* name) {
+  PrintF("%s\n", name);
+
+  auto fixed_d =  this->fixed_double_live_ranges();
+  for (unsigned int i = 0; i < fixed_d.size(); ++i) {
+    TraceLiveRange(fixed_d[i], "fixed", this->local_zone() );
+  }
+
+  const auto fixed = this->fixed_live_ranges();
+  for (unsigned int i = 0; i < fixed.size(); ++i) {
+    TraceLiveRange(fixed[i], "fixed", this->local_zone());
+  }
+
+  const auto live_ranges = this->live_ranges();
+  for (unsigned int i = 0; i < live_ranges.size(); ++i) {
+    TraceLiveRange(live_ranges[i], "object", this->local_zone());
+  }
+}
+
+
+void RegisterAllocator::TraceLiveRange(LiveRange* range, const char* type,
+                             Zone* zone) {
+  if (range != NULL && !range->IsEmpty()) {
+    PrintF("  ");
+    PrintF("%d %s", range->id(), type);
+    if (range->HasRegisterAssigned()) {
+      int assigned_reg = range->assigned_register();
+      if (range->Kind() == DOUBLE_REGISTERS) {
+        PrintF(" \"ST %d\"", assigned_reg);
+      } else {
+        DCHECK(range->Kind() == GENERAL_REGISTERS);
+        PrintF(" \"general %d\"", assigned_reg);
+      }
+    } else if (range->IsSpilled()) {
+      InstructionOperand* op = range->TopLevel()->GetSpillOperand();
+      if (op->IsDoubleStackSlot()) {
+        PrintF(" \"double_stack:%d\"", op->index());
+      } else {
+        DCHECK(op->IsStackSlot());
+        PrintF(" \"stack:%d\"", op->index());
+      }
+    }
+    int parent_index = -1;
+    if (range->IsChild()) {
+      parent_index = range->parent()->id();
+    } else {
+      parent_index = range->id();
+    }
+    InstructionOperand* op = range->FirstHint();
+    int hint_index = -1;
+    if (op != NULL && op->IsUnallocated()) {
+      hint_index = UnallocatedOperand::cast(op)->virtual_register();
+    }
+    PrintF(" %d %d", parent_index, hint_index);
+    UseInterval* cur_interval = range->first_interval();
+    while (cur_interval != NULL && range->Covers(cur_interval->start())) {
+      PrintF(" [%d, %d[",
+             cur_interval->start().Value(),
+             cur_interval->end().Value());
+      cur_interval = cur_interval->next();
+    }
+
+    UsePosition* current_pos = range->first_pos();
+    while (current_pos != NULL) {
+      if (current_pos->RegisterIsBeneficial() || FLAG_trace_all_uses) {
+        PrintF(" %d M", current_pos->pos().Value());
+      }
+      current_pos = current_pos->next();
+    }
+
+    PrintF(" \"\"\n");
+  }
+}
+
+
 void RegisterAllocator::BuildLiveRanges() {
   // Process the blocks in reverse order.
   for (int block_id = code()->InstructionBlockCount() - 1; block_id >= 0;
@@ -1842,6 +1921,9 @@ void RegisterAllocator::BuildLiveRanges() {
       }
     }
   }
+
+  if (FLAG_trace_turbo_graph)
+    TraceLiveRanges("Test");
 }
 
 
@@ -2533,10 +2615,31 @@ void RegisterAllocator::SpillBetweenUntil(LiveRange* range,
         second_part, Max(second_part->Start().InstructionEnd(), until),
         third_part_end);
 
-    DCHECK(third_part != second_part);
-
-    Spill(second_part);
-    AddToUnhandledSorted(third_part);
+ //   DCHECK(third_part != second_part);
+    if (third_part == second_part) {
+      auto parent = range;
+      auto grand_parent = range->parent();
+      while (grand_parent) { parent = grand_parent; grand_parent = grand_parent->parent(); }
+      if (parent->HasSpillOperand() && parent->GetSpillOperand()->IsConstant()) {
+         for (auto pos = range->first_pos(); pos != nullptr; pos = pos->next_) {
+            if (pos->type() == UsePositionType::kRequiresSlot) continue;
+            UsePositionType new_type = UsePositionType::kAny;
+            // Can't mark phis as needing a register.
+            if (!code()
+                     ->InstructionAt(pos->pos().InstructionIndex())
+                     ->IsGapMoves()) {
+              new_type = UsePositionType::kRequiresSlot;
+            }
+            pos->set_type(new_type, false);
+          }
+         Spill(range);
+      } else {
+    	UNIMPLEMENTED();
+      }
+    } else  {
+      Spill(second_part);
+      AddToUnhandledSorted(third_part);
+    }
   } else {
     // The split result does not intersect with [start, end[.
     // Nothing to spill. Just put it to unhandled as whole.

@@ -7,9 +7,9 @@
 #include "src/compiler/code-generator-impl.h"
 #include "src/compiler/gap-resolver.h"
 #include "src/compiler/node-matchers.h"
+#include "src/scopes.h"
 #include "src/x87/assembler-x87.h"
 #include "src/x87/macro-assembler-x87.h"
-#include "src/scopes.h"
 
 namespace v8 {
 namespace internal {
@@ -38,9 +38,10 @@ class X87OperandConverter : public InstructionOperandConverter {
     if (op->IsRegister()) {
       DCHECK(extra == 0);
       return Operand(ToRegister(op));
-    } // else if (op->IsDoubleRegister()) {
+    } else if (op->IsDoubleRegister()) {
+      DCHECK(extra == 0);
       UNIMPLEMENTED();
-
+    }
     DCHECK(op->IsStackSlot() || op->IsDoubleStackSlot());
     // The linkage computes where all spill slots are located.
     FrameOffset offset = linkage()->GetFrameOffset(op->index(), frame(), extra);
@@ -186,12 +187,17 @@ class OutOfLineLoadFloat FINAL : public OutOfLineCode {
       : OutOfLineCode(gen), result_(result) {}
 
   void Generate() FINAL {
-    UNIMPLEMENTED();
+    DCHECK(result_.code() == 0);
     USE(result_);
+    __ fstp(0);
+    __ push(Immediate(0xffffffff));
+    __ push(Immediate(0x7fffffff));
+    __ fld_d(MemOperand(esp, 0));
+    __ lea(esp, Operand(esp, kDoubleSize));
   }
 
  private:
-   X87Register const result_;
+  X87Register const result_;
 };
 
 
@@ -219,6 +225,7 @@ class OutOfLineTruncateDoubleToI FINAL : public OutOfLineCode {
   do {                                                                  \
     auto result = i.OutputDoubleRegister();                             \
     auto offset = i.InputRegister(0);                                   \
+    DCHECK(result.code() == 0);                                         \
     if (instr->InputAt(1)->IsRegister()) {                              \
       __ cmp(offset, i.InputRegister(1));                               \
     } else {                                                            \
@@ -226,7 +233,8 @@ class OutOfLineTruncateDoubleToI FINAL : public OutOfLineCode {
     }                                                                   \
     OutOfLineCode* ool = new (zone()) OutOfLineLoadFloat(this, result); \
     __ j(above_equal, ool->entry());                                    \
-    __ asm_instr(result, i.MemoryOperand(2));                           \
+    __ fstp(0);                                                         \
+    __ asm_instr(i.MemoryOperand(2));                                   \
     __ bind(ool->exit());                                               \
   } while (false)
 
@@ -256,8 +264,9 @@ class OutOfLineTruncateDoubleToI FINAL : public OutOfLineCode {
       __ cmp(offset, i.InputImmediate(1));                      \
     }                                                           \
     Label done;                                                 \
+    DCHECK(i.InputDoubleRegister(2).code() == 0);               \
     __ j(above_equal, &done, Label::kNear);                     \
-    __ asm_instr(i.MemoryOperand(3), i.InputDoubleRegister(2)); \
+    __ asm_instr(i.MemoryOperand(3));                           \
     __ bind(&done);                                             \
   } while (false)
 
@@ -335,7 +344,11 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       __ mov(i.OutputRegister(), esp);
       break;
     case kArchTruncateDoubleToI: {
-      UNIMPLEMENTED();
+      auto input = i.InputDoubleRegister(0);
+      USE(input);
+      DCHECK(input.code() == 0);
+      auto result_reg = i.OutputRegister();
+      __ TruncateX87TOSToI(result_reg);
       break;
     }
     case kX87Add:
@@ -445,146 +458,404 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
     case kX87Lzcnt:
       __ Lzcnt(i.OutputRegister(), i.InputOperand(0));
       break;
-#ifdef 0
-    case kSSEFloat64Cmp:
-      __ ucomisd(i.InputDoubleRegister(0), i.InputOperand(1));
+    case kX87LoadFloat64Constant: {
+      InstructionOperand* source = instr->InputAt(0);
+      InstructionOperand* destination = instr->Output();
+      DCHECK(source->IsConstant());
+      X87OperandConverter g(this, NULL);
+      Constant src_constant = g.ToConstant(source);
+
+      DCHECK_EQ(Constant::kFloat64, src_constant.type());
+      uint64_t src = bit_cast<uint64_t>(src_constant.ToFloat64());
+      uint32_t lower = static_cast<uint32_t>(src);
+      uint32_t upper = static_cast<uint32_t>(src >> 32);
+      if (destination->IsDoubleRegister()) {
+         __ sub(esp, Immediate(kDoubleSize));
+         __ mov(MemOperand(esp, 0), Immediate(lower));
+         __ mov(MemOperand(esp, kInt32Size), Immediate(upper));
+         __ fstp(0);
+         __ fld_d(MemOperand(esp, 0));
+         __ add(esp, Immediate(kDoubleSize));
+      } else {
+    	  UNREACHABLE();
+      }
       break;
-    case kSSEFloat64Add:
-      __ addsd(i.InputDoubleRegister(0), i.InputOperand(1));
+    }
+    case kX87Float64Add: {
+      __ X87SetFPUCW(0x027F); /*
+      if (instr->InputAt(0)->IsDoubleRegister()) {
+        __ fadd_d(i.InputOperand(1));
+      } else if (instr->InputAt(1)->IsDoubleRegister()) {
+        __ fadd_d(i.InputOperand(0));
+      } else {
+        __ fstp(0);
+        __ fld_d(i.InputOperand(0));
+        __ fadd_d(i.InputOperand(1));
+      } */
+      __ fld_d(MemOperand(esp, 0));
+      __ fld_d(MemOperand(esp, kDoubleSize));
+      __ faddp();
+      // Restore the default value of control word.
+      __ X87SetFPUCW(0x037F);
       break;
-    case kSSEFloat64Sub:
-      __ subsd(i.InputDoubleRegister(0), i.InputOperand(1));
+    }
+    case kX87Float64Sub: {
+      __ X87SetFPUCW(0x027F);
+      /*
+      if (instr->InputAt(0)->IsDoubleRegister()) {
+        __ fsub_d(i.InputOperand(1));
+      } else if (instr->InputAt(1)->IsDoubleRegister()) {
+        __ fsubr_d(i.InputOperand(0));
+      } else {
+        __ fstp(0);
+        __ fld_d(i.InputOperand(0));
+        __ fsub_d(i.InputOperand(1));
+      }
+      */
+      __ fstp(0);
+      __ fld_d(MemOperand(esp, kDoubleSize));
+      __ fsub_d(MemOperand(esp, 0));
+      // Restore the default value of control word.
+      __ X87SetFPUCW(0x037F);
       break;
-    case kSSEFloat64Mul:
-      __ mulsd(i.InputDoubleRegister(0), i.InputOperand(1));
+    }
+    case kX87Float64Mul: {
+      __ X87SetFPUCW(0x027F);
+      /*
+      if (instr->InputAt(0)->IsDoubleRegister()) {
+        __ fmul_d(i.InputOperand(1));
+      } else if (instr->InputAt(1)->IsDoubleRegister()) {
+        __ fmul_d(i.InputOperand(0));
+      } else {
+        __ fstp(0);
+        __ fld_d(i.InputOperand(0));
+        __ fmul_d(i.InputOperand(1));
+      } */
+      __ fstp(0);
+      __ fld_d(MemOperand(esp, kDoubleSize));
+      __ fmul_d(MemOperand(esp, 0));
+      // Restore the default value of control word.
+      __ X87SetFPUCW(0x037F);
       break;
-    case kSSEFloat64Div:
-      __ divsd(i.InputDoubleRegister(0), i.InputOperand(1));
+    }
+    case kX87Float64Div: {
+      __ X87SetFPUCW(0x027F);
+      /*
+      if (instr->InputAt(0)->IsDoubleRegister()) {
+        __ fdiv_d(i.InputOperand(1));
+      } else if (instr->InputAt(1)->IsDoubleRegister()) {
+        __ fdivr_d(i.InputOperand(0));
+      } else {
+        __ fstp(0);
+        __ fld_d(i.InputOperand(0));
+        __ fdiv_d(i.InputOperand(1));
+      } */
+      __ fstp(0);
+      __ fld_d(MemOperand(esp, kDoubleSize));
+      __ fdiv_d(MemOperand(esp, 0));
+      // Restore the default value of control word.
+      __ X87SetFPUCW(0x037F);
       break;
-    case kSSEFloat64Max:
-      __ maxsd(i.InputDoubleRegister(0), i.InputOperand(1));
-      break;
-    case kSSEFloat64Min:
-      __ minsd(i.InputDoubleRegister(0), i.InputOperand(1));
-      break;
-    case kSSEFloat64Mod: {
-      // TODO(dcarney): alignment is wrong.
-      __ sub(esp, Immediate(kDoubleSize));
-      // Move values to st(0) and st(1).
-      __ movsd(Operand(esp, 0), i.InputDoubleRegister(1));
-      __ fld_d(Operand(esp, 0));
-      __ movsd(Operand(esp, 0), i.InputDoubleRegister(0));
-      __ fld_d(Operand(esp, 0));
-      // Loop while fprem isn't done.
-      Label mod_loop;
-      __ bind(&mod_loop);
-      // This instructions traps on all kinds inputs, but we are assuming the
-      // floating point control word is set to ignore them all.
-      __ fprem();
-      // The following 2 instruction implicitly use eax.
-      __ fnstsw_ax();
-      __ sahf();
-      __ j(parity_even, &mod_loop);
-      // Move output to stack and clean up.
-      __ fstp(1);
+    }
+    case kX87Float64Mod: {
+      FrameScope frame_scope(&masm_, StackFrame::MANUAL);
+      __ push(eax);
+      __ mov(eax, esp);
+      __ PrepareCallCFunction(4, eax);
+      /*
+      if (instr->InputAt(0)->IsDoubleRegister()) {
+        __ fld_d(i.InputOperand(1));
+        __ fstp_d(Operand(esp, 1 * kDoubleSize));
+        __ fstp_d(Operand(esp, 0));
+      } else if (instr->InputAt(1)->IsDoubleRegister()) {
+        __ fstp_d(Operand(esp, 1 * kDoubleSize));
+        __ fld_d(i.InputOperand(0));
+        __ fstp_d(Operand(esp, 0));
+      } else {
+        __ fstp(0);
+        __ fld_d(i.InputOperand(1));
+        __ fstp_d(Operand(esp, 1 * kDoubleSize));
+        __ fld_d(i.InputOperand(0));
+        __ fstp_d(Operand(esp, 0));
+      } */
+      __ fstp(0);
+      __ fld_d(MemOperand(eax, 1 * kIntSize)); // We push eax.
+      __ fstp_d(Operand(esp, 1 * kDoubleSize));
+      __ fld_d(MemOperand(eax, kDoubleSize + kIntSize));
       __ fstp_d(Operand(esp, 0));
-      __ movsd(i.OutputDoubleRegister(), Operand(esp, 0));
-      __ add(esp, Immediate(kDoubleSize));
+      __ CallCFunction(
+          ExternalReference::mod_two_doubles_operation(isolate()), 4);
+      __ pop(eax);
       break;
     }
-    case kSSEFloat64Sqrt:
-      __ sqrtsd(i.OutputDoubleRegister(), i.InputOperand(0));
-      break;
-    case kSSEFloat64Round: {
-      CpuFeatureScope sse_scope(masm(), SSE4_1);
-      RoundingMode const mode =
-          static_cast<RoundingMode>(MiscField::decode(instr->opcode()));
-      __ roundsd(i.OutputDoubleRegister(), i.InputDoubleRegister(0), mode);
+    case kX87Float64Max: {
+      Label check_nan_left, check_zero, return_left, return_right;
+      Condition condition = below;
+      __ fstp(0);
+      __ fld_d(MemOperand(esp, kDoubleSize));
+      __ fld_d(MemOperand(esp, 0));
+      __ fld(1);
+      __ fld(1);
+      __ FCmp();
+      __ j(parity_even, &check_nan_left, Label::kNear);  // At least one NaN.
+      __ j(equal, &check_zero, Label::kNear);            // left == right.
+      __ j(condition, &return_left, Label::kNear);
+      __ jmp(&return_right, Label::kNear);
+
+      __ bind(&check_zero);
+      __ fld(0);
+      __ fldz();
+      __ FCmp();
+      __ j(not_equal, &return_left, Label::kNear);  // left == right != 0.
+
+      __ fadd(1);
+      __ jmp(&return_left, Label::kNear);
+
+      __ bind(&check_nan_left);
+      __ fld(0);
+      __ fld(0);
+      __ FCmp();                                      // NaN check.
+      __ j(parity_even, &return_left, Label::kNear);  // left == NaN.
+
+      __ bind(&return_right);
+      __ fxch();
+
+      __ bind(&return_left);
+      __ fstp(0);
       break;
     }
-    case kSSECvtss2sd:
-      __ cvtss2sd(i.OutputDoubleRegister(), i.InputOperand(0));
+    case kX87Float64Min: {
+      Label check_nan_left, check_zero, return_left, return_right;
+      Condition condition = above;
+      __ fstp(0);
+      __ fld_d(MemOperand(esp, kDoubleSize));
+      __ fld_d(MemOperand(esp, 0));
+      __ fld(1);
+      __ fld(1);
+      __ FCmp();
+      __ j(parity_even, &check_nan_left, Label::kNear);  // At least one NaN.
+      __ j(equal, &check_zero, Label::kNear);            // left == right.
+      __ j(condition, &return_left, Label::kNear);
+      __ jmp(&return_right, Label::kNear);
+
+      __ bind(&check_zero);
+      __ fld(0);
+      __ fldz();
+      __ FCmp();
+      __ j(not_equal, &return_left, Label::kNear);  // left == right != 0.
+      // At this point, both left and right are either 0 or -0.
+      // Push st0 and st1 to stack, then pop them to temp registers and OR them,
+      // load it to left.
+      __ push(eax);
+      __ fld(1);
+      __ fld(1);
+      __ sub(esp, Immediate(2 * kPointerSize));
+      __ fstp_s(MemOperand(esp, 0));
+      __ fstp_s(MemOperand(esp, kPointerSize));
+      __ pop(eax);
+      __ xor_(MemOperand(esp, 0), eax);
+      __ fstp(0);
+      __ fld_s(MemOperand(esp, 0));
+      __ pop(eax);  // restore esp
+      __ pop(eax);  // restore esp
+      __ jmp(&return_left, Label::kNear);
+
+      __ bind(&check_nan_left);
+      __ fld(0);
+      __ fld(0);
+      __ FCmp();                                      // NaN check.
+      __ j(parity_even, &return_left, Label::kNear);  // left == NaN.
+
+      __ bind(&return_right);
+      __ fxch();
+
+      __ bind(&return_left);
+      __ fstp(0);
       break;
-    case kSSECvtsd2ss:
-      __ cvtsd2ss(i.OutputDoubleRegister(), i.InputOperand(0));
+    }
+    case kX87Int32ToFloat64: {
+      InstructionOperand* input = instr->InputAt(0);
+      DCHECK(input->IsRegister() || input->IsStackSlot());
+      if (input->IsRegister()) {
+        Register input_reg = i.InputRegister(0);
+        __ push(input_reg);
+        __ fild_s(Operand(esp, 0));
+        __ pop(input_reg);
+      } else {
+        __ fild_s(i.InputOperand(0));
+      }
       break;
-    case kSSEFloat64ToInt32:
-      __ cvttsd2si(i.OutputRegister(), i.InputOperand(0));
+    }
+    case kX87Float32ToFloat64: {
+        InstructionOperand* input = instr->InputAt(0);
+        if (input->IsDoubleRegister()) {
+          __ sub(esp, Immediate(kDoubleSize));
+          __ fstp_d(MemOperand(esp, 0));
+          __ fld_d(MemOperand(esp, 0));
+          __ add(esp, Immediate(kDoubleSize));
+        } else {
+          DCHECK(input->IsDoubleStackSlot());
+          __ fstp(0);
+          __ fld_d(i.InputOperand(0));
+        }
       break;
-    case kSSEFloat64ToUint32: {
-      XMMRegister scratch = xmm0;
-      __ Move(scratch, -2147483648.0);
-      __ addsd(scratch, i.InputOperand(0));
-      __ cvttsd2si(i.OutputRegister(), scratch);
+    }
+    case kX87Uint32ToFloat64: {
+      __ fstp(0);
+      __ LoadUint32NoSSE2(i.InputRegister(0));
+      break;
+    }
+    case kX87Float64ToInt32: {
+      if (!instr->InputAt(0)->IsDoubleRegister()) {
+    	__ fstp(0);
+        __ fld_d(i.InputOperand(0));
+      }
+      __ sub(esp, Immediate(kInt32Size));
+      __ fistp_s(MemOperand(esp, 0));
+      __ mov(i.OutputRegister(0), MemOperand(esp, 0));
+      __ add(esp, Immediate(kInt32Size));
+      break;
+    }
+    case kX87Float64ToFloat32: {
+      InstructionOperand* input = instr->InputAt(0);
+      if (input->IsDoubleRegister()) {
+        __ sub(esp, Immediate(kDoubleSize));
+        __ fstp_s(MemOperand(esp, 0));
+        __ fld_s(MemOperand(esp, 0));
+        __ add(esp, Immediate(kDoubleSize));
+      } else {
+        DCHECK(input->IsDoubleStackSlot());
+        __ fstp(0);
+        __ fld_d(i.InputOperand(0));
+        __ sub(esp, Immediate(kDoubleSize));
+        __ fstp_s(MemOperand(esp, 0));
+        __ fld_s(MemOperand(esp, 0));
+        __ add(esp, Immediate(kDoubleSize));
+      }
+      break;
+    }
+    case kX87Float64ToUint32: {
+      __ push_imm32(-2147483648);
+      if (!instr->InputAt(0)->IsDoubleRegister()) {
+        __ fstp(0);
+        __ fld_d(i.InputOperand(0));
+      }
+      __ fild_s(Operand(esp, 0));
+      __ fadd(1);
+      __ fstp(0);
+      __ fistp_s(MemOperand(esp, 0));
+      __ mov(i.OutputRegister(), MemOperand(esp, 0));
+      __ add(esp, Immediate(kInt32Size));
       __ add(i.OutputRegister(), Immediate(0x80000000));
       break;
     }
-    case kSSEInt32ToFloat64:
-      __ cvtsi2sd(i.OutputDoubleRegister(), i.InputOperand(0));
-      break;
-    case kSSEUint32ToFloat64:
-      __ LoadUint32(i.OutputDoubleRegister(), i.InputOperand(0));
-      break;
-    case kSSEFloat64ExtractLowWord32:
-      if (instr->InputAt(0)->IsDoubleStackSlot()) {
-        __ mov(i.OutputRegister(), i.InputOperand(0));
+    case kX87Float64ExtractHighWord32: {
+      if (instr->InputAt(0)->IsDoubleRegister()) {
+        __ sub(esp, Immediate(kDoubleSize));
+        __ fstp_d(MemOperand(esp, 0));
+        __ mov(i.OutputRegister(), MemOperand(esp, kDoubleSize / 2));
+        __ add(esp, Immediate(kDoubleSize));
       } else {
-        __ movd(i.OutputRegister(), i.InputDoubleRegister(0));
-      }
-      break;
-    case kSSEFloat64ExtractHighWord32:
-      if (instr->InputAt(0)->IsDoubleStackSlot()) {
+        InstructionOperand* input = instr->InputAt(0);
+        USE(input);
+        DCHECK(input->IsDoubleStackSlot());
         __ mov(i.OutputRegister(), i.InputOperand(0, kDoubleSize / 2));
-      } else {
-        __ Pextrd(i.OutputRegister(), i.InputDoubleRegister(0), 1);
       }
       break;
-    case kSSEFloat64InsertLowWord32:
-      __ Pinsrd(i.OutputDoubleRegister(), i.InputOperand(1), 0);
-      break;
-    case kSSEFloat64InsertHighWord32:
-      __ Pinsrd(i.OutputDoubleRegister(), i.InputOperand(1), 1);
-      break;
-    case kSSEFloat64LoadLowWord32:
-      __ movd(i.OutputDoubleRegister(), i.InputOperand(0));
-      break;
-    case kAVXFloat64Add: {
-      CpuFeatureScope avx_scope(masm(), AVX);
-      __ vaddsd(i.OutputDoubleRegister(), i.InputDoubleRegister(0),
-                i.InputOperand(1));
+    }
+    case kX87Float64ExtractLowWord32: {
+      if (instr->InputAt(0)->IsDoubleRegister()) {
+        __ sub(esp, Immediate(kDoubleSize));
+        __ fstp_d(MemOperand(esp, 0));
+        __ mov(i.OutputRegister(), MemOperand(esp, 0));
+        __ add(esp, Immediate(kDoubleSize));
+      } else {
+        InstructionOperand* input = instr->InputAt(0);
+        USE(input);
+        DCHECK(input->IsDoubleStackSlot());
+        __ mov(i.OutputRegister(), i.InputOperand(0));
+      }
       break;
     }
-    case kAVXFloat64Sub: {
-      CpuFeatureScope avx_scope(masm(), AVX);
-      __ vsubsd(i.OutputDoubleRegister(), i.InputDoubleRegister(0),
-                i.InputOperand(1));
+    case kX87Float64InsertHighWord32: {
+      __ sub(esp, Immediate(kDoubleSize));
+      __ fstp_d(MemOperand(esp, 0));
+      __ mov(MemOperand(esp, kDoubleSize / 2), i.InputRegister(1));
+      __ fld_d(MemOperand(esp, 0));
+      __ add(esp, Immediate(kDoubleSize));
       break;
     }
-    case kAVXFloat64Mul: {
-      CpuFeatureScope avx_scope(masm(), AVX);
-      __ vmulsd(i.OutputDoubleRegister(), i.InputDoubleRegister(0),
-                i.InputOperand(1));
+    case kX87Float64InsertLowWord32: {
+      __ sub(esp, Immediate(kDoubleSize));
+      __ fstp_d(MemOperand(esp, 0));
+      __ mov(MemOperand(esp, 0), i.InputRegister(1));
+      __ fld_d(MemOperand(esp, 0));
+      __ add(esp, Immediate(kDoubleSize));
       break;
     }
-    case kAVXFloat64Div: {
-      CpuFeatureScope avx_scope(masm(), AVX);
-      __ vdivsd(i.OutputDoubleRegister(), i.InputDoubleRegister(0),
-                i.InputOperand(1));
+    case kX87Float64Sqrt: {
+        /*
+    	InstructionOperand* input = instr->InputAt(0);
+        if (input->IsDoubleRegister()) {
+          __ fsqrt();
+        } else {
+          DCHECK(input->IsDoubleStackSlot());
+          __ fstp(0);
+          __ fld_d(i.InputOperand(0));
+          __ fsqrt();
+        }
+        */
+        __ fstp(0);
+        __ fld_d(MemOperand(esp, 0));
+        __ fsqrt();
       break;
     }
-    case kAVXFloat64Max: {
-      CpuFeatureScope avx_scope(masm(), AVX);
-      __ vmaxsd(i.OutputDoubleRegister(), i.InputDoubleRegister(0),
-                i.InputOperand(1));
+    case kX87Float64Round: {
+      RoundingMode mode =
+          static_cast<RoundingMode>(MiscField::decode(instr->opcode()));
+     if (mode == MiscField::encode(kRoundDown)) {
+        __ X87SetRC(0x0400);
+     } else {
+        __ X87SetRC(0x0c00);
+     }
+
+     if (!instr->InputAt(0)->IsDoubleRegister()) {
+       InstructionOperand* input = instr->InputAt(0);
+       USE(input);
+       DCHECK(input->IsDoubleStackSlot());
+       __ fstp(0);
+       __ fld_d(i.InputOperand(0));
+     }
+     __ frndint();
+     __ X87SetRC(0x0000);
       break;
     }
-    case kAVXFloat64Min: {
-      CpuFeatureScope avx_scope(masm(), AVX);
-      __ vminsd(i.OutputDoubleRegister(), i.InputDoubleRegister(0),
-                i.InputOperand(1));
+    case kX87Float64Cmp: {
+    	/*
+      if (instr->InputAt(0)->IsDoubleRegister()) {
+        Operand right = i.InputOperand(1);
+        DCHECK(instr->InputAt(1)->IsDoubleStackSlot());
+        __ fld(0);
+        __ fld_d(right);
+      } else if (instr->InputAt(1)->IsDoubleRegister()) {
+        Operand left = i.InputOperand(0);
+        DCHECK(instr->InputAt(0)->IsDoubleStackSlot());
+        __ fld_d(left);
+        __ fld(1);
+      } else {
+        Operand left = i.InputOperand(0);
+        Operand right = i.InputOperand(1);
+        DCHECK(instr->InputAt(0)->IsDoubleStackSlot());
+        DCHECK(instr->InputAt(1)->IsDoubleStackSlot());
+        __ fld_d(left);
+        __ fld_d(right);
+      }
+      */
+      __ fld_d(MemOperand(esp, kDoubleSize));
+      __ fld_d(MemOperand(esp, 0));
+      __ FCmp();
       break;
     }
-#endif
     case kX87Movsxbl:
       __ movsx_b(i.OutputRegister(), i.MemoryOperand());
       break;
@@ -630,12 +901,32 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
         }
       }
       break;
-    case kX87Movsd:
-      UNIMPLEMENTED();
+    case kX87Movsd: {
+      if (instr->HasOutput()) {
+        X87Register output = i.OutputDoubleRegister();
+        USE(output);
+        DCHECK(output.code() == 0);
+        __ fld_d(i.MemoryOperand());
+      } else {
+        size_t index = 0;
+        Operand operand = i.MemoryOperand(&index);
+        __ fstp_d(operand);
+      }
       break;
-    case kX87Movss:
-   	  UNIMPLEMENTED();
+    }
+    case kX87Movss: {
+      if (instr->HasOutput()) {
+        X87Register output = i.OutputDoubleRegister();
+        USE(output);
+        DCHECK(output.code() == 0);
+        __ fld_s(i.MemoryOperand());
+      } else {
+        size_t index = 0;
+        Operand operand = i.MemoryOperand(&index);
+        __ fst_s(operand);
+      }
       break;
+    }
     case kX87Lea: {
       AddressingMode mode = AddressingModeField::decode(instr->opcode());
       // Shorten "leal" to "addl", "subl" or "shll" if the register allocation
@@ -678,6 +969,21 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
         __ push(i.InputOperand(0));
       }
       break;
+    case kX87PushFloat64:
+      __ lea(esp, Operand(esp, -kDoubleSize));
+      if (instr->InputAt(0)->IsDoubleStackSlot()) {
+        __ fld_d(i.InputOperand(0));
+        __ fstp_d(MemOperand(esp, 0));
+      } else if (instr->InputAt(0)->IsDoubleRegister()) {
+        __ fst_d(MemOperand(esp, 0));
+      } else {
+    	UNREACHABLE();
+      }
+      break;
+    case kX87Pop:
+      CHECK(HasImmediateInput(instr, 0));
+      __ lea(esp, Operand(esp, i.InputInt32(0)));
+      break;
     case kX87StoreWriteBarrier: {
       Register object = i.InputRegister(0);
       Register index = i.InputRegister(1);
@@ -705,25 +1011,25 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       ASSEMBLE_CHECKED_LOAD_INTEGER(mov);
       break;
     case kCheckedLoadFloat32:
-      UNIMPLEMENTED();
+      ASSEMBLE_CHECKED_LOAD_FLOAT(fld_s);
       break;
     case kCheckedLoadFloat64:
-      UNIMPLEMENTED();
+      ASSEMBLE_CHECKED_LOAD_FLOAT(fld_d);
       break;
     case kCheckedStoreWord8:
-      UNIMPLEMENTED();
+      ASSEMBLE_CHECKED_STORE_INTEGER(mov_b);
       break;
     case kCheckedStoreWord16:
-      UNIMPLEMENTED();
+      ASSEMBLE_CHECKED_STORE_INTEGER(mov_w);
       break;
     case kCheckedStoreWord32:
       ASSEMBLE_CHECKED_STORE_INTEGER(mov);
       break;
     case kCheckedStoreFloat32:
-      UNIMPLEMENTED();
+      ASSEMBLE_CHECKED_STORE_FLOAT(fst_s);
       break;
     case kCheckedStoreFloat64:
-      UNIMPLEMENTED();
+      ASSEMBLE_CHECKED_STORE_FLOAT(fst_d);
       break;
     case kX87StackCheck: {
       ExternalReference const stack_limit =
@@ -1039,6 +1345,7 @@ void CodeGenerator::AssembleDeoptimizerCall(
 void CodeGenerator::AssemblePrologue() {
   CallDescriptor* descriptor = linkage()->GetIncomingDescriptor();
   int stack_slots = frame()->GetSpillSlotCount();
+
   if (descriptor->kind() == CallDescriptor::kCallAddress) {
     // Assemble a prologue similar the to cdecl calling convention.
     __ push(ebp);
@@ -1084,12 +1391,14 @@ void CodeGenerator::AssemblePrologue() {
     // Allocate the stack slots used by this frame.
     __ sub(esp, Immediate(stack_slots * kPointerSize));
   }
+  __ fld1();
 }
 
 
 void CodeGenerator::AssembleReturn() {
   CallDescriptor* descriptor = linkage()->GetIncomingDescriptor();
   int stack_slots = frame()->GetSpillSlotCount();
+  __ fstp(0);
   if (descriptor->kind() == CallDescriptor::kCallAddress) {
     const RegList saves = descriptor->CalleeSavedRegisters();
     if (frame()->GetRegisterSaveAreaSize() > 0) {
@@ -1184,14 +1493,30 @@ void CodeGenerator::AssembleMove(InstructionOperand* source,
       __ Move(dst, g.ToImmediate(source));
     } else if (src_constant.type() == Constant::kFloat32) {
       // TODO(turbofan): Can we do better here?
-      UNIMPLEMENTED();
+      uint32_t src = bit_cast<uint32_t>(src_constant.ToFloat32());
+      if (destination->IsDoubleRegister()) {
+        __ sub(esp, Immediate(kInt32Size));
+        __ mov(MemOperand(esp, 0), Immediate(src));
+        __ fstp(0);
+        __ fld_s(MemOperand(esp, 0));
+        __ add(esp, Immediate(kInt32Size));
+      } else {
+        DCHECK(destination->IsDoubleStackSlot());
+        Operand dst = g.ToOperand(destination);
+        __ Move(dst, Immediate(src));
+      }
     } else {
       DCHECK_EQ(Constant::kFloat64, src_constant.type());
       uint64_t src = bit_cast<uint64_t>(src_constant.ToFloat64());
       uint32_t lower = static_cast<uint32_t>(src);
       uint32_t upper = static_cast<uint32_t>(src >> 32);
       if (destination->IsDoubleRegister()) {
-   	    UNIMPLEMENTED();
+        __ sub(esp, Immediate(kDoubleSize));
+        __ mov(MemOperand(esp, 0), Immediate(lower));
+        __ mov(MemOperand(esp, kInt32Size), Immediate(upper));
+        __ fstp(0);
+        __ fld_d(MemOperand(esp, 0));
+        __ add(esp, Immediate(kDoubleSize));
       } else {
         DCHECK(destination->IsDoubleStackSlot());
         Operand dst0 = g.ToOperand(destination);
@@ -1201,15 +1526,19 @@ void CodeGenerator::AssembleMove(InstructionOperand* source,
       }
     }
   } else if (source->IsDoubleRegister()) {
-    UNIMPLEMENTED();
+    DCHECK(destination->IsDoubleStackSlot());
+    Operand dst = g.ToOperand(destination);
+    __ fstp_d(dst);
   } else if (source->IsDoubleStackSlot()) {
     DCHECK(destination->IsDoubleRegister() || destination->IsDoubleStackSlot());
     Operand src = g.ToOperand(source);
     if (destination->IsDoubleRegister()) {
-      USE(src);
-      UNIMPLEMENTED();
+      __ fstp(0);
+      __ fld_d(src);
     } else {
-      UNIMPLEMENTED();
+      Operand dst = g.ToOperand(destination);
+      __ fld_d(src);
+      __ fstp_d(dst);
     }
   } else {
     UNREACHABLE();
@@ -1239,11 +1568,16 @@ void CodeGenerator::AssembleSwap(InstructionOperand* source,
     __ pop(dst);
     __ pop(src);
   } else if (source->IsDoubleRegister() && destination->IsDoubleRegister()) {
-    UNIMPLEMENTED();
+    UNREACHABLE();
   } else if (source->IsDoubleRegister() && destination->IsDoubleStackSlot()) {
-    UNIMPLEMENTED();
+    __ fld_d(g.ToOperand(destination));
+    __ fxch();
+    __ fstp_d(g.ToOperand(destination));
   } else if (source->IsDoubleStackSlot() && destination->IsDoubleStackSlot()) {
-	UNIMPLEMENTED();
+    __ fld_d(g.ToOperand(source));
+    __ fld_d(g.ToOperand(destination));
+    __ fstp_d(g.ToOperand(source));
+    __ fstp_d(g.ToOperand(destination));
   } else {
     // No other combinations are possible.
     UNREACHABLE();

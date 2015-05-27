@@ -152,6 +152,14 @@ struct XMMRegister {
     return kMaxNumAllocatableRegisters;
   }
 
+  static int NumAllocatableRegistersForTurbo() {
+    return NumAllocatableRegisters();
+  }
+
+  static int NumAllocatableAliasedRegistersForTurbo() {
+    return NumAllocatableRegisters();
+  }
+
   // TODO(turbofan): Proper support for float32.
   static int NumAllocatableAliasedRegisters() {
     return NumAllocatableRegisters();

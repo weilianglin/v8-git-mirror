@@ -1094,6 +1094,7 @@ assert(typeof Int32Array !== 'undefined' && typeof Float64Array !== 'undefined' 
        'JS engine does not provide full typed array support');
 
 var buffer = new ArrayBuffer(TOTAL_MEMORY);
+print(buffer);
 HEAP8 = new Int8Array(buffer);
 HEAP16 = new Int16Array(buffer);
 HEAP32 = new Int32Array(buffer);
