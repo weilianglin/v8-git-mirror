@@ -657,7 +657,6 @@ void InstructionSelector::VisitFloat64Add(Node* node) {
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Add, g.DefineAsFixed(node, stX_0), 0, NULL);
-  Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
 }
 
 
@@ -668,7 +667,6 @@ void InstructionSelector::VisitFloat64Sub(Node* node) {
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Sub, g.DefineAsFixed(node, stX_0), 0, NULL);
-  Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
 }
 
 
@@ -679,7 +677,6 @@ void InstructionSelector::VisitFloat64Mul(Node* node) {
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Mul, g.DefineAsFixed(node, stX_0), 0, NULL);
-  Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
 }
 
 
@@ -690,7 +687,6 @@ void InstructionSelector::VisitFloat64Div(Node* node) {
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Div, g.DefineAsFixed(node, stX_0), 0, NULL);
-  Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
 }
 
 
@@ -701,7 +697,6 @@ void InstructionSelector::VisitFloat64Mod(Node* node) {
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Mod, g.DefineAsFixed(node, stX_0), 0, NULL);
-  Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
 }
 
 
@@ -711,7 +706,6 @@ void InstructionSelector::VisitFloat64Max(Node* node) {
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Max, g.DefineAsFixed(node, stX_0), 0, NULL);
-  Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
 //  Emit(kX87Float64Max, g.DefineAsFixed(node, stX_0),
 //       g.Use(node->InputAt(0)), g.Use(node->InputAt(1)));
 }
@@ -724,7 +718,6 @@ void InstructionSelector::VisitFloat64Min(Node* node) {
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Min, g.DefineAsFixed(node, stX_0), 0, NULL);
-  Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
 }
 
 
@@ -850,7 +843,6 @@ void VisitFloat64Compare(InstructionSelector* selector, Node* node,
   X87OperandGenerator g(selector);
   selector->Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   selector->Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
-  //VisitCompare(selector, kX87Float64Cmp, g.Use(left), g.Use(right), cont);
   if (cont->IsBranch()) {
     selector->Emit(cont->Encode(kX87Float64Cmp), g.NoOutput(),
     		       g.Label(cont->true_block()), g.Label(cont->false_block()));
@@ -858,7 +850,6 @@ void VisitFloat64Compare(InstructionSelector* selector, Node* node,
     DCHECK(cont->IsSet());
     selector->Emit(cont->Encode(kX87Float64Cmp), g.DefineAsByteRegister(cont->result()));
   }
-  selector->Emit(kX87Pop, g.NoOutput(), g.CreateImmediate(2 * kDoubleSize));
 }
 
 

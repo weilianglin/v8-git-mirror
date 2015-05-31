@@ -66,7 +66,6 @@ namespace compiler {
   V(X87Lea)                       \
   V(X87Push)                      \
   V(X87PushFloat64)               \
-  V(X87Pop)                       \
   V(X87StoreWriteBarrier)         \
   V(X87StackCheck)
 
