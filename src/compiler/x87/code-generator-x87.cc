@@ -482,77 +482,46 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       break;
     }
     case kX87Float64Add: {
-      __ X87SetFPUCW(0x027F); /*
-      if (instr->InputAt(0)->IsDoubleRegister()) {
-        __ fadd_d(i.InputOperand(1));
-      } else if (instr->InputAt(1)->IsDoubleRegister()) {
-        __ fadd_d(i.InputOperand(0));
-      } else {
-        __ fstp(0);
-        __ fld_d(i.InputOperand(0));
-        __ fadd_d(i.InputOperand(1));
-      } */
+      __ X87SetFPUCW(0x027F);
+      __ fstp(0);
       __ fld_d(MemOperand(esp, 0));
       __ fld_d(MemOperand(esp, kDoubleSize));
       __ faddp();
+      // Clear stack.
+      __ lea(esp, Operand(esp, 2 * kDoubleSize));
       // Restore the default value of control word.
       __ X87SetFPUCW(0x037F);
       break;
     }
     case kX87Float64Sub: {
       __ X87SetFPUCW(0x027F);
-      /*
-      if (instr->InputAt(0)->IsDoubleRegister()) {
-        __ fsub_d(i.InputOperand(1));
-      } else if (instr->InputAt(1)->IsDoubleRegister()) {
-        __ fsubr_d(i.InputOperand(0));
-      } else {
-        __ fstp(0);
-        __ fld_d(i.InputOperand(0));
-        __ fsub_d(i.InputOperand(1));
-      }
-      */
       __ fstp(0);
       __ fld_d(MemOperand(esp, kDoubleSize));
       __ fsub_d(MemOperand(esp, 0));
+      // Clear stack.
+      __ lea(esp, Operand(esp, 2 * kDoubleSize));
       // Restore the default value of control word.
       __ X87SetFPUCW(0x037F);
       break;
     }
     case kX87Float64Mul: {
       __ X87SetFPUCW(0x027F);
-      /*
-      if (instr->InputAt(0)->IsDoubleRegister()) {
-        __ fmul_d(i.InputOperand(1));
-      } else if (instr->InputAt(1)->IsDoubleRegister()) {
-        __ fmul_d(i.InputOperand(0));
-      } else {
-        __ fstp(0);
-        __ fld_d(i.InputOperand(0));
-        __ fmul_d(i.InputOperand(1));
-      } */
       __ fstp(0);
       __ fld_d(MemOperand(esp, kDoubleSize));
       __ fmul_d(MemOperand(esp, 0));
+      // Clear stack.
+      __ lea(esp, Operand(esp, 2 * kDoubleSize));
       // Restore the default value of control word.
       __ X87SetFPUCW(0x037F);
       break;
     }
     case kX87Float64Div: {
       __ X87SetFPUCW(0x027F);
-      /*
-      if (instr->InputAt(0)->IsDoubleRegister()) {
-        __ fdiv_d(i.InputOperand(1));
-      } else if (instr->InputAt(1)->IsDoubleRegister()) {
-        __ fdivr_d(i.InputOperand(0));
-      } else {
-        __ fstp(0);
-        __ fld_d(i.InputOperand(0));
-        __ fdiv_d(i.InputOperand(1));
-      } */
       __ fstp(0);
       __ fld_d(MemOperand(esp, kDoubleSize));
       __ fdiv_d(MemOperand(esp, 0));
+      // Clear stack.
+      __ lea(esp, Operand(esp, 2 * kDoubleSize));
       // Restore the default value of control word.
       __ X87SetFPUCW(0x037F);
       break;
@@ -562,22 +531,6 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       __ push(eax);
       __ mov(eax, esp);
       __ PrepareCallCFunction(4, eax);
-      /*
-      if (instr->InputAt(0)->IsDoubleRegister()) {
-        __ fld_d(i.InputOperand(1));
-        __ fstp_d(Operand(esp, 1 * kDoubleSize));
-        __ fstp_d(Operand(esp, 0));
-      } else if (instr->InputAt(1)->IsDoubleRegister()) {
-        __ fstp_d(Operand(esp, 1 * kDoubleSize));
-        __ fld_d(i.InputOperand(0));
-        __ fstp_d(Operand(esp, 0));
-      } else {
-        __ fstp(0);
-        __ fld_d(i.InputOperand(1));
-        __ fstp_d(Operand(esp, 1 * kDoubleSize));
-        __ fld_d(i.InputOperand(0));
-        __ fstp_d(Operand(esp, 0));
-      } */
       __ fstp(0);
       __ fld_d(MemOperand(eax, 1 * kIntSize)); // We push eax.
       __ fstp_d(Operand(esp, 1 * kDoubleSize));
@@ -687,17 +640,17 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       break;
     }
     case kX87Float32ToFloat64: {
-        InstructionOperand* input = instr->InputAt(0);
-        if (input->IsDoubleRegister()) {
-          __ sub(esp, Immediate(kDoubleSize));
-          __ fstp_d(MemOperand(esp, 0));
-          __ fld_d(MemOperand(esp, 0));
-          __ add(esp, Immediate(kDoubleSize));
-        } else {
-          DCHECK(input->IsDoubleStackSlot());
-          __ fstp(0);
-          __ fld_d(i.InputOperand(0));
-        }
+      InstructionOperand* input = instr->InputAt(0);
+      if (input->IsDoubleRegister()) {
+        __ sub(esp, Immediate(kDoubleSize));
+        __ fstp_d(MemOperand(esp, 0));
+        __ fld_d(MemOperand(esp, 0));
+        __ add(esp, Immediate(kDoubleSize));
+      } else {
+        DCHECK(input->IsDoubleStackSlot());
+        __ fstp(0);
+        __ fld_d(i.InputOperand(0));
+      }
       break;
     }
     case kX87Uint32ToFloat64: {
@@ -854,6 +807,7 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       __ fld_d(MemOperand(esp, kDoubleSize));
       __ fld_d(MemOperand(esp, 0));
       __ FCmp();
+      __ lea(esp, Operand(esp, 2 * kDoubleSize));
       break;
     }
     case kX87Movsxbl:
@@ -979,10 +933,6 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       } else {
     	UNREACHABLE();
       }
-      break;
-    case kX87Pop:
-      CHECK(HasImmediateInput(instr, 0));
-      __ lea(esp, Operand(esp, i.InputInt32(0)));
       break;
     case kX87StoreWriteBarrier: {
       Register object = i.InputRegister(0);
@@ -1391,6 +1341,10 @@ void CodeGenerator::AssemblePrologue() {
     // Allocate the stack slots used by this frame.
     __ sub(esp, Immediate(stack_slots * kPointerSize));
   }
+
+  // Initailize FPU state.
+  __ fninit();
+  __ fld1();
 }
 
 
@@ -1495,6 +1449,7 @@ void CodeGenerator::AssembleMove(InstructionOperand* source,
       if (destination->IsDoubleRegister()) {
         __ sub(esp, Immediate(kInt32Size));
         __ mov(MemOperand(esp, 0), Immediate(src));
+        // always only push one value into the x87 stack.
         __ fstp(0);
         __ fld_s(MemOperand(esp, 0));
         __ add(esp, Immediate(kInt32Size));
@@ -1512,6 +1467,7 @@ void CodeGenerator::AssembleMove(InstructionOperand* source,
         __ sub(esp, Immediate(kDoubleSize));
         __ mov(MemOperand(esp, 0), Immediate(lower));
         __ mov(MemOperand(esp, kInt32Size), Immediate(upper));
+        // always only push one value into the x87 stack.
         __ fstp(0);
         __ fld_d(MemOperand(esp, 0));
         __ add(esp, Immediate(kDoubleSize));
@@ -1526,11 +1482,12 @@ void CodeGenerator::AssembleMove(InstructionOperand* source,
   } else if (source->IsDoubleRegister()) {
     DCHECK(destination->IsDoubleStackSlot());
     Operand dst = g.ToOperand(destination);
-    __ fstp_d(dst);
+    __ fst_d(dst);
   } else if (source->IsDoubleStackSlot()) {
     DCHECK(destination->IsDoubleRegister() || destination->IsDoubleStackSlot());
     Operand src = g.ToOperand(source);
     if (destination->IsDoubleRegister()) {
+      // always only push one value into the x87 stack.
       __ fstp(0);
       __ fld_d(src);
     } else {

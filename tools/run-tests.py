@@ -53,11 +53,11 @@ from testrunner.objects import context
 
 ARCH_GUESS = utils.DefaultArch()
 DEFAULT_TESTS = [
-#  "mjsunit",
-#  "unittests",
+  "mjsunit",
+  "unittests",
   "cctest",
-#  "message",
-#  "preparser",
+  "message",
+  "preparser",
 ]
 
 # Map of test name synonyms to lists of test suites. Should be ordered by
