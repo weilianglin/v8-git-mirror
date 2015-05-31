@@ -629,6 +629,7 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
     case kX87Int32ToFloat64: {
       InstructionOperand* input = instr->InputAt(0);
       DCHECK(input->IsRegister() || input->IsStackSlot());
+      __ fstp(0);
       if (input->IsRegister()) {
         Register input_reg = i.InputRegister(0);
         __ push(input_reg);
@@ -660,13 +661,12 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
     }
     case kX87Float64ToInt32: {
       if (!instr->InputAt(0)->IsDoubleRegister()) {
-    	__ fstp(0);
         __ fld_d(i.InputOperand(0));
       }
-      __ sub(esp, Immediate(kInt32Size));
-      __ fistp_s(MemOperand(esp, 0));
-      __ mov(i.OutputRegister(0), MemOperand(esp, 0));
-      __ add(esp, Immediate(kInt32Size));
+      __ TruncateX87TOSToI(i.OutputRegister(0));
+      if (!instr->InputAt(0)->IsDoubleRegister()) {
+        __ fstp(0);
+      }
       break;
     }
     case kX87Float64ToFloat32: {
@@ -860,11 +860,12 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
         X87Register output = i.OutputDoubleRegister();
         USE(output);
         DCHECK(output.code() == 0);
+        __ fstp(0);
         __ fld_d(i.MemoryOperand());
       } else {
         size_t index = 0;
         Operand operand = i.MemoryOperand(&index);
-        __ fstp_d(operand);
+        __ fst_d(operand);
       }
       break;
     }
@@ -873,6 +874,7 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
         X87Register output = i.OutputDoubleRegister();
         USE(output);
         DCHECK(output.code() == 0);
+        __ fstp(0);
         __ fld_s(i.MemoryOperand());
       } else {
         size_t index = 0;
