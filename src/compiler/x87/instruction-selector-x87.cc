@@ -694,9 +694,10 @@ void InstructionSelector::VisitFloat64Mod(Node* node) {
   X87OperandGenerator g(this);
   //Emit(kX87Float64Mod, g.DefineAsFixed(node, stX_0),
   //     g.UseUnique(node->InputAt(0)), g.Use(node->InputAt(1)));
+  InstructionOperand temps[] = {g.TempRegister(eax)};
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
-  Emit(kX87Float64Mod, g.DefineAsFixed(node, stX_0), 0, NULL);
+  Emit(kX87Float64Mod, g.DefineAsFixed(node, stX_0), 1, temps);
 }
 
 
