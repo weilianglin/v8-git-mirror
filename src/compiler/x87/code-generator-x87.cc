@@ -528,17 +528,16 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
     }
     case kX87Float64Mod: {
       FrameScope frame_scope(&masm_, StackFrame::MANUAL);
-      __ push(eax);
       __ mov(eax, esp);
       __ PrepareCallCFunction(4, eax);
       __ fstp(0);
-      __ fld_d(MemOperand(eax, 1 * kIntSize)); // We push eax.
+      __ fld_d(MemOperand(eax, 0));
       __ fstp_d(Operand(esp, 1 * kDoubleSize));
-      __ fld_d(MemOperand(eax, kDoubleSize + kIntSize));
+      __ fld_d(MemOperand(eax, kDoubleSize));
       __ fstp_d(Operand(esp, 0));
       __ CallCFunction(
           ExternalReference::mod_two_doubles_operation(isolate()), 4);
-      __ pop(eax);
+      __ lea(esp, Operand(esp, 2 * kDoubleSize));
       break;
     }
     case kX87Float64Max: {
