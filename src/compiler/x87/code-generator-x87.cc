@@ -747,20 +747,10 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       break;
     }
     case kX87Float64Sqrt: {
-        /*
-    	InstructionOperand* input = instr->InputAt(0);
-        if (input->IsDoubleRegister()) {
-          __ fsqrt();
-        } else {
-          DCHECK(input->IsDoubleStackSlot());
-          __ fstp(0);
-          __ fld_d(i.InputOperand(0));
-          __ fsqrt();
-        }
-        */
-        __ fstp(0);
-        __ fld_d(MemOperand(esp, 0));
-        __ fsqrt();
+      __ fstp(0);
+      __ fld_d(MemOperand(esp, 0));
+      __ fsqrt();
+      __ lea(esp, Operand(esp, kDoubleSize));
       break;
     }
     case kX87Float64Round: {

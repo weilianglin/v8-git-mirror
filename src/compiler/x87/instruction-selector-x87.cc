@@ -724,8 +724,8 @@ void InstructionSelector::VisitFloat64Min(Node* node) {
 
 void InstructionSelector::VisitFloat64Sqrt(Node* node) {
   X87OperandGenerator g(this);
-  Emit(kX87Float64Sqrt, g.DefineAsFixed(node, stX_0),
-       g.Use(node->InputAt(0)));
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87Float64Sqrt, g.DefineAsFixed(node, stX_0), 0, NULL);
 }
 
 
