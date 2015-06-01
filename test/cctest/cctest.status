@@ -302,11 +302,6 @@
 ##############################################################################
 ['arch == x87', {
 
-  # Test requires turbofan:
-  'codegen-tester/CompareWrapper': [SKIP],
-  'codegen-tester/ParametersEqual': [SKIP],
-  'test-simplified-lowering/LowerStringOps_to_call_and_compare': [SKIP],
-  'test-serialize/SerializeInternalReference': [FAIL],
 }],  # 'arch == x87'
 
 ##############################################################################
