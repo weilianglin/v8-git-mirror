@@ -690,16 +690,17 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
     case kX87Float64ToUint32: {
       __ push_imm32(-2147483648);
       if (!instr->InputAt(0)->IsDoubleRegister()) {
-        __ fstp(0);
         __ fld_d(i.InputOperand(0));
       }
       __ fild_s(Operand(esp, 0));
       __ fadd(1);
       __ fstp(0);
-      __ fistp_s(MemOperand(esp, 0));
-      __ mov(i.OutputRegister(), MemOperand(esp, 0));
+      __ TruncateX87TOSToI(i.OutputRegister(0));
       __ add(esp, Immediate(kInt32Size));
       __ add(i.OutputRegister(), Immediate(0x80000000));
+      if (!instr->InputAt(0)->IsDoubleRegister()) {
+        __ fstp(0);
+      }
       break;
     }
     case kX87Float64ExtractHighWord32: {
