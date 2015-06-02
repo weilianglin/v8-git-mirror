@@ -705,7 +705,7 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
     case kX87Float64ExtractHighWord32: {
       if (instr->InputAt(0)->IsDoubleRegister()) {
         __ sub(esp, Immediate(kDoubleSize));
-        __ fstp_d(MemOperand(esp, 0));
+        __ fst_d(MemOperand(esp, 0));
         __ mov(i.OutputRegister(), MemOperand(esp, kDoubleSize / 2));
         __ add(esp, Immediate(kDoubleSize));
       } else {
@@ -719,7 +719,7 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
     case kX87Float64ExtractLowWord32: {
       if (instr->InputAt(0)->IsDoubleRegister()) {
         __ sub(esp, Immediate(kDoubleSize));
-        __ fstp_d(MemOperand(esp, 0));
+        __ fst_d(MemOperand(esp, 0));
         __ mov(i.OutputRegister(), MemOperand(esp, 0));
         __ add(esp, Immediate(kDoubleSize));
       } else {
