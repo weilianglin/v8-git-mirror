@@ -3477,6 +3477,7 @@ TEST(RunFloat64DivP) {
   Float64BinopTester bt(&m);
 
   bt.AddReturn(m.Float64Div(bt.param0, bt.param1));
+
   FOR_FLOAT64_INPUTS(pl) {
     FOR_FLOAT64_INPUTS(pr) {
       double expected = *pl / *pr;
@@ -3755,7 +3756,7 @@ TEST(RunChangeFloat64ToUint32_spilled) {
 
 TEST(RunTruncateFloat64ToFloat32_spilled) {
   RawMachineAssemblerTester<uint32_t> m;
-  const int kNumInputs = 2;
+  const int kNumInputs = 32;
   uint32_t magic = 0x786234;
   double input[kNumInputs];
   float result[kNumInputs];
@@ -4211,7 +4212,6 @@ TEST(RunFloat64Compare) {
          node_type++) {
       for (size_t input = 0; input < arraysize(inputs); input += 2) {
         RawMachineAssemblerTester<int32_t> m;
-        //printf("test: %d   node type: %d   %f   %f\n", test,  node_type,  inputs[input],inputs[input +1]); 
         int expected = Float64CompareHelper(&m, test, node_type, inputs[input],
                                             inputs[input + 1]);
         CHECK_EQ(expected, m.Call());
@@ -4885,8 +4885,6 @@ TEST(RunFloat64ExtractLowWord32) {
   RawMachineAssemblerTester<int32_t> m;
   m.Return(m.Float64ExtractLowWord32(m.LoadFromPointer(&input, kMachFloat64)));
   FOR_FLOAT64_INPUTS(i) {
-    static int count = 0;
-    printf("%d\n", count++);
     input = bit_cast<uint64_t>(*i);
     int32_t expected = bit_cast<int32_t>(static_cast<uint32_t>(input));
     CHECK_EQ(expected, m.Call());
