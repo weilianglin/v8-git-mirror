@@ -662,8 +662,6 @@ void InstructionSelector::VisitFloat64Add(Node* node) {
 
 void InstructionSelector::VisitFloat64Sub(Node* node) {
   X87OperandGenerator g(this);
-  //Emit(kX87Float64Sub, g.DefineAsFixed(node, stX_0),
-    //   g.Use(node->InputAt(0)), g.Use(node->InputAt(1)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Sub, g.DefineAsFixed(node, stX_0), 0, NULL);
@@ -672,8 +670,6 @@ void InstructionSelector::VisitFloat64Sub(Node* node) {
 
 void InstructionSelector::VisitFloat64Mul(Node* node) {
   X87OperandGenerator g(this);
-  //Emit(kX87Float64Mul, g.DefineAsFixed(node, stX_0),
-  //     g.Use(node->InputAt(0)), g.Use(node->InputAt(1)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Mul, g.DefineAsFixed(node, stX_0), 0, NULL);
@@ -682,8 +678,6 @@ void InstructionSelector::VisitFloat64Mul(Node* node) {
 
 void InstructionSelector::VisitFloat64Div(Node* node) {
   X87OperandGenerator g(this);
-  //Emit(kX87Float64Div, g.DefineAsFixed(node, stX_0),
-  //     g.Use(node->InputAt(0)), g.Use(node->InputAt(1)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Div, g.DefineAsFixed(node, stX_0), 0, NULL);
@@ -692,8 +686,6 @@ void InstructionSelector::VisitFloat64Div(Node* node) {
 
 void InstructionSelector::VisitFloat64Mod(Node* node) {
   X87OperandGenerator g(this);
-  //Emit(kX87Float64Mod, g.DefineAsFixed(node, stX_0),
-  //     g.UseUnique(node->InputAt(0)), g.Use(node->InputAt(1)));
   InstructionOperand temps[] = {g.TempRegister(eax)};
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
@@ -707,15 +699,11 @@ void InstructionSelector::VisitFloat64Max(Node* node) {
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Max, g.DefineAsFixed(node, stX_0), 0, NULL);
-//  Emit(kX87Float64Max, g.DefineAsFixed(node, stX_0),
-//       g.Use(node->InputAt(0)), g.Use(node->InputAt(1)));
 }
 
 
 void InstructionSelector::VisitFloat64Min(Node* node) {
   X87OperandGenerator g(this);
-  //Emit(kX87Float64Min, g.DefineAsFixed(node, stX_0),
-  //     g.Use(node->InputAt(0)), g.Use(node->InputAt(1)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Min, g.DefineAsFixed(node, stX_0), 0, NULL);
@@ -846,10 +834,11 @@ void VisitFloat64Compare(InstructionSelector* selector, Node* node,
   selector->Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   if (cont->IsBranch()) {
     selector->Emit(cont->Encode(kX87Float64Cmp), g.NoOutput(),
-    		       g.Label(cont->true_block()), g.Label(cont->false_block()));
+                   g.Label(cont->true_block()), g.Label(cont->false_block()));
   } else {
     DCHECK(cont->IsSet());
-    selector->Emit(cont->Encode(kX87Float64Cmp), g.DefineAsByteRegister(cont->result()));
+    selector->Emit(cont->Encode(kX87Float64Cmp),
+                   g.DefineAsByteRegister(cont->result()));
   }
 }
 

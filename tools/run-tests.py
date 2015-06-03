@@ -80,7 +80,7 @@ TEST_MAP = {
   ],
 }
 
-TIMEOUT_DEFAULT = 5 
+TIMEOUT_DEFAULT = 60
 
 VARIANTS = ["default", "stress", "turbofan", "nocrankshaft"]
 

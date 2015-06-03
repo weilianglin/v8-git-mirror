@@ -1224,10 +1224,6 @@ void RegisterAllocator::MeetConstraintsBetween(Instruction* first,
         AllocateFixed(cur_input, gap_index + 1, is_tagged);
         AddGapMove(gap_index, GapInstruction::END, input_copy, cur_input);
       }
-      //else if (cur_input->HasSlotPolicy() && cur_input->IsConstant()) {
-      // 	 auto input_copy = cur_input->CopyUnconstrained(code_zone());
-      //  AddGapMove(gap_index, GapInstruction::END, input_copy, cur_input);
-      // }
     }
 
     // Handle "output same as input" for second instruction.
@@ -2615,31 +2611,10 @@ void RegisterAllocator::SpillBetweenUntil(LiveRange* range,
         second_part, Max(second_part->Start().InstructionEnd(), until),
         third_part_end);
 
- //   DCHECK(third_part != second_part);
-    if (third_part == second_part) {
-      auto parent = range;
-      auto grand_parent = range->parent();
-      while (grand_parent) { parent = grand_parent; grand_parent = grand_parent->parent(); }
-      if (parent->HasSpillOperand() && parent->GetSpillOperand()->IsConstant()) {
-         for (auto pos = range->first_pos(); pos != nullptr; pos = pos->next_) {
-            if (pos->type() == UsePositionType::kRequiresSlot) continue;
-            UsePositionType new_type = UsePositionType::kAny;
-            // Can't mark phis as needing a register.
-            if (!code()
-                     ->InstructionAt(pos->pos().InstructionIndex())
-                     ->IsGapMoves()) {
-              new_type = UsePositionType::kRequiresSlot;
-            }
-            pos->set_type(new_type, false);
-          }
-         Spill(range);
-      } else {
-    	UNIMPLEMENTED();
-      }
-    } else  {
-      Spill(second_part);
-      AddToUnhandledSorted(third_part);
-    }
+    DCHECK(third_part != second_part);
+
+    Spill(second_part);
+    AddToUnhandledSorted(third_part);
   } else {
     // The split result does not intersect with [start, end[.
     // Nothing to spill. Just put it to unhandled as whole.

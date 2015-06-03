@@ -470,14 +470,14 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       uint32_t lower = static_cast<uint32_t>(src);
       uint32_t upper = static_cast<uint32_t>(src >> 32);
       if (destination->IsDoubleRegister()) {
-         __ sub(esp, Immediate(kDoubleSize));
-         __ mov(MemOperand(esp, 0), Immediate(lower));
-         __ mov(MemOperand(esp, kInt32Size), Immediate(upper));
-         __ fstp(0);
-         __ fld_d(MemOperand(esp, 0));
-         __ add(esp, Immediate(kDoubleSize));
+        __ sub(esp, Immediate(kDoubleSize));
+        __ mov(MemOperand(esp, 0), Immediate(lower));
+        __ mov(MemOperand(esp, kInt32Size), Immediate(upper));
+        __ fstp(0);
+        __ fld_d(MemOperand(esp, 0));
+        __ add(esp, Immediate(kDoubleSize));
       } else {
-    	  UNREACHABLE();
+        UNREACHABLE();
       }
       break;
     }
@@ -774,26 +774,6 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       break;
     }
     case kX87Float64Cmp: {
-    	/*
-      if (instr->InputAt(0)->IsDoubleRegister()) {
-        Operand right = i.InputOperand(1);
-        DCHECK(instr->InputAt(1)->IsDoubleStackSlot());
-        __ fld(0);
-        __ fld_d(right);
-      } else if (instr->InputAt(1)->IsDoubleRegister()) {
-        Operand left = i.InputOperand(0);
-        DCHECK(instr->InputAt(0)->IsDoubleStackSlot());
-        __ fld_d(left);
-        __ fld(1);
-      } else {
-        Operand left = i.InputOperand(0);
-        Operand right = i.InputOperand(1);
-        DCHECK(instr->InputAt(0)->IsDoubleStackSlot());
-        DCHECK(instr->InputAt(1)->IsDoubleStackSlot());
-        __ fld_d(left);
-        __ fld_d(right);
-      }
-      */
       __ fld_d(MemOperand(esp, kDoubleSize));
       __ fld_d(MemOperand(esp, 0));
       __ FCmp();
@@ -923,7 +903,7 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       } else if (instr->InputAt(0)->IsDoubleRegister()) {
         __ fst_d(MemOperand(esp, 0));
       } else {
-    	UNREACHABLE();
+        UNREACHABLE();
       }
       break;
     case kX87StoreWriteBarrier: {

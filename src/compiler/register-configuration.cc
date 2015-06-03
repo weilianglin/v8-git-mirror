@@ -21,10 +21,10 @@ class ArchDefaultRegisterConfiguration : public RegisterConfiguration {
  public:
   ArchDefaultRegisterConfiguration()
       : RegisterConfiguration(Register::kMaxNumAllocatableRegisters,
-                              DoubleRegister::NumAllocatableRegistersForTurbo(),
-                              DoubleRegister::NumAllocatableAliasedRegistersForTurbo(),
-                              general_register_name_table_,
-                              double_register_name_table_) {
+           DoubleRegister::NumAllocatableRegistersForTurbo(),
+           DoubleRegister::NumAllocatableAliasedRegistersForTurbo(),
+           general_register_name_table_,
+           double_register_name_table_) {
     DCHECK_EQ(Register::kMaxNumAllocatableRegisters,
               Register::NumAllocatableRegisters());
     for (int i = 0; i < Register::kMaxNumAllocatableRegisters; ++i) {

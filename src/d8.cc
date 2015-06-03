@@ -1722,8 +1722,6 @@ int Shell::Main(int argc, char* argv[]) {
 
 #ifndef GOOGLE3
 int main(int argc, char* argv[]) {
-  if (std::isnan(0.0625))
-	   printf("nan");
   return v8::Shell::Main(argc, argv);
 }
 #endif
