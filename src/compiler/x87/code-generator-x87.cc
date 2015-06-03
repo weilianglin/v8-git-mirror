@@ -305,6 +305,19 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
         __ call(Operand(reg, Code::kHeaderSize - kHeapObjectTag));
       }
       RecordCallPosition(instr);
+      bool double_result =
+          instr->HasOutput() && instr->Output()->IsDoubleRegister();
+      if (double_result) {
+        __ lea(esp, Operand(esp, -kDoubleSize));
+        __ fstp_d(Operand(esp, 0));
+      }
+      __ fninit();
+      if (double_result) {
+        __ fld_d(Operand(esp, 0));
+        __ lea(esp, Operand(esp, kDoubleSize));
+      } else {
+        __ fld1();
+      }
       break;
     }
     case kArchCallJSFunction: {
@@ -317,6 +330,19 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       }
       __ call(FieldOperand(func, JSFunction::kCodeEntryOffset));
       RecordCallPosition(instr);
+      bool double_result =
+          instr->HasOutput() && instr->Output()->IsDoubleRegister();
+      if (double_result) {
+        __ lea(esp, Operand(esp, -kDoubleSize));
+        __ fstp_d(Operand(esp, 0));
+      }
+      __ fninit();
+      if (double_result) {
+        __ fld_d(Operand(esp, 0));
+        __ lea(esp, Operand(esp, kDoubleSize));
+      } else {
+        __ fld1();
+      }
       break;
     }
     case kArchJmp:

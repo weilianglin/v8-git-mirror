@@ -689,7 +689,7 @@ void InstructionSelector::VisitFloat64Mod(Node* node) {
   InstructionOperand temps[] = {g.TempRegister(eax)};
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
-  Emit(kX87Float64Mod, g.DefineAsFixed(node, stX_0), 1, temps);
+  Emit(kX87Float64Mod, g.DefineAsFixed(node, stX_0), 1, temps)->MarkAsCall();
 }
 
 
