@@ -600,6 +600,7 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
 
       __ bind(&return_left);
       __ fstp(0);
+      __ lea(esp, Operand(esp, 2 * kDoubleSize));
       break;
     }
     case kX87Float64Min: {
@@ -649,6 +650,7 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
 
       __ bind(&return_left);
       __ fstp(0);
+      __ lea(esp, Operand(esp, 2 * kDoubleSize));
       break;
     }
     case kX87Int32ToFloat64: {
