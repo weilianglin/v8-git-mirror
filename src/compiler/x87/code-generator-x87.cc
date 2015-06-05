@@ -880,7 +880,7 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
       } else {
         DCHECK(input->IsDoubleStackSlot());
         __ fstp(0);
-        __ fld_d(i.InputOperand(0));
+        __ fld_s(i.InputOperand(0));
       }
       break;
     }
