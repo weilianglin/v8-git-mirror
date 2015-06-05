@@ -1776,14 +1776,39 @@ void CodeGenerator::AssembleSwap(InstructionOperand* source,
   } else if (source->IsDoubleRegister() && destination->IsDoubleRegister()) {
     UNREACHABLE();
   } else if (source->IsDoubleRegister() && destination->IsDoubleStackSlot()) {
-    __ fld_d(g.ToOperand(destination));
-    __ fxch();
-    __ fstp_d(g.ToOperand(destination));
+    auto allocated = AllocatedOperand::cast(*source);
+    switch (allocated.machine_type()) {
+      case kRepFloat32:
+        __ fld_s(g.ToOperand(destination));
+        __ fxch();
+        __ fstp_s(g.ToOperand(destination));
+        break;
+      case kRepFloat64:
+        __ fld_d(g.ToOperand(destination));
+        __ fxch();
+        __ fstp_d(g.ToOperand(destination));
+        break;
+      default:
+        UNREACHABLE();
+    }
   } else if (source->IsDoubleStackSlot() && destination->IsDoubleStackSlot()) {
-    __ fld_d(g.ToOperand(source));
-    __ fld_d(g.ToOperand(destination));
-    __ fstp_d(g.ToOperand(source));
-    __ fstp_d(g.ToOperand(destination));
+    auto allocated = AllocatedOperand::cast(*source);
+    switch (allocated.machine_type()) {
+      case kRepFloat32:
+        __ fld_s(g.ToOperand(source));
+        __ fld_s(g.ToOperand(destination));
+        __ fstp_s(g.ToOperand(source));
+        __ fstp_s(g.ToOperand(destination));
+        break;
+      case kRepFloat64:
+        __ fld_d(g.ToOperand(source));
+        __ fld_d(g.ToOperand(destination));
+        __ fstp_d(g.ToOperand(source));
+        __ fstp_d(g.ToOperand(destination));
+        break;
+      default:
+        UNREACHABLE();
+    }
   } else {
     // No other combinations are possible.
     UNREACHABLE();
