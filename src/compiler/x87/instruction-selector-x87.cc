@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "src/base/adapters.h"
 #include "src/compiler/instruction-selector-impl.h"
 #include "src/compiler/node-matchers.h"
 #include "src/compiler/node-properties.h"
@@ -11,7 +12,7 @@ namespace internal {
 namespace compiler {
 
 // Adds X87-specific methods for generating operands.
-class X87OperandGenerator FINAL : public OperandGenerator {
+class X87OperandGenerator final : public OperandGenerator {
  public:
   explicit X87OperandGenerator(InstructionSelector* selector)
       : OperandGenerator(selector) {}
@@ -27,8 +28,7 @@ class X87OperandGenerator FINAL : public OperandGenerator {
   }
 
   InstructionOperand CreateImmediate(int imm) {
-    int index = sequence()->AddImmediate(Constant(imm));
-    return ImmediateOperand(index);
+    return sequence()->AddImmediate(Constant(imm));
   }
 
   bool CanBeImmediate(Node* node) {
@@ -190,11 +190,17 @@ void InstructionSelector::VisitStore(Node* node) {
     DCHECK_EQ(kRepTagged, rep);
     // TODO(dcarney): refactor RecordWrite function to take temp registers
     //                and pass them here instead of using fixed regs
-    // TODO(dcarney): handle immediate indices.
-    InstructionOperand temps[] = {g.TempRegister(ecx), g.TempRegister(edx)};
-    Emit(kX87StoreWriteBarrier, g.NoOutput(), g.UseFixed(base, ebx),
-         g.UseFixed(index, ecx), g.UseFixed(value, edx), arraysize(temps),
-         temps);
+    if (g.CanBeImmediate(index)) {
+      InstructionOperand temps[] = {g.TempRegister(ecx), g.TempRegister()};
+      Emit(kX87StoreWriteBarrier, g.NoOutput(), g.UseFixed(base, ebx),
+           g.UseImmediate(index), g.UseFixed(value, ecx), arraysize(temps),
+           temps);
+    } else {
+      InstructionOperand temps[] = {g.TempRegister(ecx), g.TempRegister(edx)};
+      Emit(kX87StoreWriteBarrier, g.NoOutput(), g.UseFixed(base, ebx),
+           g.UseFixed(index, ecx), g.UseFixed(value, edx), arraysize(temps),
+           temps);
+    }
     return;
   }
   DCHECK_EQ(kNoWriteBarrier, store_rep.write_barrier_kind());
@@ -652,11 +658,27 @@ void InstructionSelector::VisitTruncateFloat64ToFloat32(Node* node) {
 }
 
 
+void InstructionSelector::VisitFloat32Add(Node* node) {
+  X87OperandGenerator g(this);
+  Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(1)));
+  Emit(kX87Float32Add, g.DefineAsFixed(node, stX_0), 0, NULL);
+}
+
+
 void InstructionSelector::VisitFloat64Add(Node* node) {
   X87OperandGenerator g(this);
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Add, g.DefineAsFixed(node, stX_0), 0, NULL);
+}
+
+
+void InstructionSelector::VisitFloat32Sub(Node* node) {
+  X87OperandGenerator g(this);
+  Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(1)));
+  Emit(kX87Float32Sub, g.DefineAsFixed(node, stX_0), 0, NULL);
 }
 
 
@@ -668,11 +690,27 @@ void InstructionSelector::VisitFloat64Sub(Node* node) {
 }
 
 
+void InstructionSelector::VisitFloat32Mul(Node* node) {
+  X87OperandGenerator g(this);
+  Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(1)));
+  Emit(kX87Float32Mul, g.DefineAsFixed(node, stX_0), 0, NULL);
+}
+
+
 void InstructionSelector::VisitFloat64Mul(Node* node) {
   X87OperandGenerator g(this);
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Mul, g.DefineAsFixed(node, stX_0), 0, NULL);
+}
+
+
+void InstructionSelector::VisitFloat32Div(Node* node) {
+  X87OperandGenerator g(this);
+  Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(1)));
+  Emit(kX87Float32Div, g.DefineAsFixed(node, stX_0), 0, NULL);
 }
 
 
@@ -693,12 +731,27 @@ void InstructionSelector::VisitFloat64Mod(Node* node) {
 }
 
 
+void InstructionSelector::VisitFloat32Max(Node* node) {
+  X87OperandGenerator g(this);
+  Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(1)));
+  Emit(kX87Float32Max, g.DefineAsFixed(node, stX_0), 0, NULL);
+}
+
+
 void InstructionSelector::VisitFloat64Max(Node* node) {
   X87OperandGenerator g(this);
-
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Max, g.DefineAsFixed(node, stX_0), 0, NULL);
+}
+
+
+void InstructionSelector::VisitFloat32Min(Node* node) {
+  X87OperandGenerator g(this);
+  Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(1)));
+  Emit(kX87Float32Min, g.DefineAsFixed(node, stX_0), 0, NULL);
 }
 
 
@@ -707,6 +760,27 @@ void InstructionSelector::VisitFloat64Min(Node* node) {
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
   Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(1)));
   Emit(kX87Float64Min, g.DefineAsFixed(node, stX_0), 0, NULL);
+}
+
+
+void InstructionSelector::VisitFloat32Abs(Node* node) {
+  X87OperandGenerator g(this);
+  Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87Float32Abs, g.DefineAsFixed(node, stX_0), 0, NULL);
+}
+
+
+void InstructionSelector::VisitFloat64Abs(Node* node) {
+  X87OperandGenerator g(this);
+  Emit(kX87PushFloat64, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87Float64Abs, g.DefineAsFixed(node, stX_0), 0, NULL);
+}
+
+
+void InstructionSelector::VisitFloat32Sqrt(Node* node) {
+  X87OperandGenerator g(this);
+  Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(0)));
+  Emit(kX87Float32Sqrt, g.DefineAsFixed(node, stX_0), 0, NULL);
 }
 
 
@@ -740,8 +814,7 @@ void InstructionSelector::VisitCall(Node* node, BasicBlock* handler) {
   X87OperandGenerator g(this);
   const CallDescriptor* descriptor = OpParameter<const CallDescriptor*>(node);
 
-  FrameStateDescriptor* frame_state_descriptor = NULL;
-
+  FrameStateDescriptor* frame_state_descriptor = nullptr;
   if (descriptor->NeedsFrameState()) {
     frame_state_descriptor =
         GetFrameStateDescriptor(node->InputAt(descriptor->InputCount()));
@@ -753,19 +826,23 @@ void InstructionSelector::VisitCall(Node* node, BasicBlock* handler) {
   InitializeCallBuffer(node, &buffer, true, true);
 
   // Push any stack arguments.
-  for (auto i = buffer.pushed_nodes.rbegin(); i != buffer.pushed_nodes.rend();
-       ++i) {
+  for (Node* node : base::Reversed(buffer.pushed_nodes)) {
     // TODO(titzer): handle pushing double parameters.
     InstructionOperand value =
-        g.CanBeImmediate(*i) ? g.UseImmediate(*i) : IsSupported(ATOM)
-                                                        ? g.UseRegister(*i)
-                                                        : g.Use(*i);
+        g.CanBeImmediate(node)
+            ? g.UseImmediate(node)
+            : IsSupported(ATOM) ? g.UseRegister(node) : g.Use(node);
     Emit(kX87Push, g.NoOutput(), value);
   }
 
   // Pass label of exception handler block.
   CallDescriptor::Flags flags = descriptor->flags();
-  if (handler != nullptr) {
+  if (handler) {
+    DCHECK_EQ(IrOpcode::kIfException, handler->front()->opcode());
+    IfExceptionHint hint = OpParameter<IfExceptionHint>(handler->front());
+    if (hint == IfExceptionHint::kLocallyCaught) {
+      flags |= CallDescriptor::kHasLocalCatchHandler;
+    }
     flags |= CallDescriptor::kHasExceptionHandler;
     buffer.instruction_args.push_back(g.Label(handler));
   }
@@ -787,12 +864,93 @@ void InstructionSelector::VisitCall(Node* node, BasicBlock* handler) {
   opcode |= MiscField::encode(flags);
 
   // Emit the call instruction.
-  InstructionOperand* first_output =
-      buffer.outputs.size() > 0 ? &buffer.outputs.front() : NULL;
-  Instruction* call_instr =
-      Emit(opcode, buffer.outputs.size(), first_output,
-           buffer.instruction_args.size(), &buffer.instruction_args.front());
-  call_instr->MarkAsCall();
+  size_t const output_count = buffer.outputs.size();
+  auto* outputs = output_count ? &buffer.outputs.front() : nullptr;
+  Emit(opcode, output_count, outputs, buffer.instruction_args.size(),
+       &buffer.instruction_args.front())->MarkAsCall();
+}
+
+
+void InstructionSelector::VisitTailCall(Node* node) {
+  X87OperandGenerator g(this);
+  CallDescriptor const* descriptor = OpParameter<CallDescriptor const*>(node);
+  DCHECK_NE(0, descriptor->flags() & CallDescriptor::kSupportsTailCalls);
+  DCHECK_EQ(0, descriptor->flags() & CallDescriptor::kPatchableCallSite);
+  DCHECK_EQ(0, descriptor->flags() & CallDescriptor::kNeedsNopAfterCall);
+
+  // TODO(turbofan): Relax restriction for stack parameters.
+  if (descriptor->UsesOnlyRegisters() &&
+      descriptor->HasSameReturnLocationsAs(
+          linkage()->GetIncomingDescriptor())) {
+    CallBuffer buffer(zone(), descriptor, nullptr);
+
+    // Compute InstructionOperands for inputs and outputs.
+    InitializeCallBuffer(node, &buffer, true, true);
+
+    DCHECK_EQ(0u, buffer.pushed_nodes.size());
+
+    // Select the appropriate opcode based on the call type.
+    InstructionCode opcode;
+    switch (descriptor->kind()) {
+      case CallDescriptor::kCallCodeObject:
+        opcode = kArchTailCallCodeObject;
+        break;
+      case CallDescriptor::kCallJSFunction:
+        opcode = kArchTailCallJSFunction;
+        break;
+      default:
+        UNREACHABLE();
+        return;
+    }
+    opcode |= MiscField::encode(descriptor->flags());
+
+    // Emit the tailcall instruction.
+    Emit(opcode, 0, nullptr, buffer.instruction_args.size(),
+         &buffer.instruction_args.front());
+  } else {
+    FrameStateDescriptor* frame_state_descriptor =
+        descriptor->NeedsFrameState()
+            ? GetFrameStateDescriptor(
+                  node->InputAt(static_cast<int>(descriptor->InputCount())))
+            : nullptr;
+
+    CallBuffer buffer(zone(), descriptor, frame_state_descriptor);
+
+    // Compute InstructionOperands for inputs and outputs.
+    InitializeCallBuffer(node, &buffer, true, true);
+
+    // Push any stack arguments.
+    for (Node* node : base::Reversed(buffer.pushed_nodes)) {
+      // TODO(titzer): Handle pushing double parameters.
+      InstructionOperand value =
+          g.CanBeImmediate(node)
+              ? g.UseImmediate(node)
+              : IsSupported(ATOM) ? g.UseRegister(node) : g.Use(node);
+      Emit(kX87Push, g.NoOutput(), value);
+    }
+
+    // Select the appropriate opcode based on the call type.
+    InstructionCode opcode;
+    switch (descriptor->kind()) {
+      case CallDescriptor::kCallCodeObject:
+        opcode = kArchCallCodeObject;
+        break;
+      case CallDescriptor::kCallJSFunction:
+        opcode = kArchCallJSFunction;
+        break;
+      default:
+        UNREACHABLE();
+        return;
+    }
+    opcode |= MiscField::encode(descriptor->flags());
+
+    // Emit the call instruction.
+    size_t output_count = buffer.outputs.size();
+    auto* outputs = &buffer.outputs.front();
+    Emit(opcode, output_count, outputs, buffer.instruction_args.size(),
+         &buffer.instruction_args.front())->MarkAsCall();
+    Emit(kArchRet, 0, nullptr, output_count, outputs);
+  }
 }
 
 
@@ -823,6 +981,23 @@ void VisitCompare(InstructionSelector* selector, InstructionCode opcode,
     std::swap(left, right);
   }
   VisitCompare(selector, opcode, g.UseRegister(left), g.Use(right), cont);
+}
+
+
+// Shared routine for multiple float32 compare operations (inputs commuted).
+void VisitFloat32Compare(InstructionSelector* selector, Node* node,
+                         FlagsContinuation* cont) {
+  X87OperandGenerator g(selector);
+  selector->Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(0)));
+  selector->Emit(kX87PushFloat32, g.NoOutput(), g.Use(node->InputAt(1)));
+  if (cont->IsBranch()) {
+    selector->Emit(cont->Encode(kX87Float32Cmp), g.NoOutput(),
+                   g.Label(cont->true_block()), g.Label(cont->false_block()));
+  } else {
+    DCHECK(cont->IsSet());
+    selector->Emit(cont->Encode(kX87Float32Cmp),
+                   g.DefineAsByteRegister(cont->result()));
+  }
 }
 
 
@@ -920,6 +1095,15 @@ void VisitWordCompareZero(InstructionSelector* selector, Node* user,
       case IrOpcode::kUint32LessThanOrEqual:
         cont->OverwriteAndNegateIfEqual(kUnsignedLessThanOrEqual);
         return VisitWordCompare(selector, value, cont);
+      case IrOpcode::kFloat32Equal:
+        cont->OverwriteAndNegateIfEqual(kUnorderedEqual);
+        return VisitFloat32Compare(selector, value, cont);
+      case IrOpcode::kFloat32LessThan:
+        cont->OverwriteAndNegateIfEqual(kUnsignedGreaterThan);
+        return VisitFloat32Compare(selector, value, cont);
+      case IrOpcode::kFloat32LessThanOrEqual:
+        cont->OverwriteAndNegateIfEqual(kUnsignedGreaterThanOrEqual);
+        return VisitFloat32Compare(selector, value, cont);
       case IrOpcode::kFloat64Equal:
         cont->OverwriteAndNegateIfEqual(kUnorderedEqual);
         return VisitFloat64Compare(selector, value, cont);
@@ -979,62 +1163,31 @@ void InstructionSelector::VisitBranch(Node* branch, BasicBlock* tbranch,
 }
 
 
-void InstructionSelector::VisitSwitch(Node* node, BasicBlock* default_branch,
-                                      BasicBlock** case_branches,
-                                      int32_t* case_values, size_t case_count,
-                                      int32_t min_value, int32_t max_value) {
+void InstructionSelector::VisitSwitch(Node* node, const SwitchInfo& sw) {
   X87OperandGenerator g(this);
   InstructionOperand value_operand = g.UseRegister(node->InputAt(0));
-  InstructionOperand default_operand = g.Label(default_branch);
 
-  // Note that {value_range} can be 0 if {min_value} is -2^31 and {max_value}
-  // is 2^31-1, so don't assume that it's non-zero below.
-  size_t value_range =
-      1u + bit_cast<uint32_t>(max_value) - bit_cast<uint32_t>(min_value);
-
-  // Determine whether to issue an ArchTableSwitch or an ArchLookupSwitch
-  // instruction.
-  size_t table_space_cost = 4 + value_range;
+  // Emit either ArchTableSwitch or ArchLookupSwitch.
+  size_t table_space_cost = 4 + sw.value_range;
   size_t table_time_cost = 3;
-  size_t lookup_space_cost = 3 + 2 * case_count;
-  size_t lookup_time_cost = case_count;
-  if (case_count > 4 &&
+  size_t lookup_space_cost = 3 + 2 * sw.case_count;
+  size_t lookup_time_cost = sw.case_count;
+  if (sw.case_count > 4 &&
       table_space_cost + 3 * table_time_cost <=
           lookup_space_cost + 3 * lookup_time_cost &&
-      min_value > std::numeric_limits<int32_t>::min()) {
+      sw.min_value > std::numeric_limits<int32_t>::min()) {
     InstructionOperand index_operand = value_operand;
-    if (min_value) {
+    if (sw.min_value) {
       index_operand = g.TempRegister();
       Emit(kX87Lea | AddressingModeField::encode(kMode_MRI), index_operand,
-           value_operand, g.TempImmediate(-min_value));
+           value_operand, g.TempImmediate(-sw.min_value));
     }
-    size_t input_count = 2 + value_range;
-    auto* inputs = zone()->NewArray<InstructionOperand>(input_count);
-    inputs[0] = index_operand;
-    std::fill(&inputs[1], &inputs[input_count], default_operand);
-    for (size_t index = 0; index < case_count; ++index) {
-      size_t value = case_values[index] - min_value;
-      BasicBlock* branch = case_branches[index];
-      DCHECK_LE(0u, value);
-      DCHECK_LT(value + 2, input_count);
-      inputs[value + 2] = g.Label(branch);
-    }
-    Emit(kArchTableSwitch, 0, nullptr, input_count, inputs, 0, nullptr);
-    return;
+    // Generate a table lookup.
+    return EmitTableSwitch(sw, index_operand);
   }
 
   // Generate a sequence of conditional jumps.
-  size_t input_count = 2 + case_count * 2;
-  auto* inputs = zone()->NewArray<InstructionOperand>(input_count);
-  inputs[0] = value_operand;
-  inputs[1] = default_operand;
-  for (size_t index = 0; index < case_count; ++index) {
-    int32_t value = case_values[index];
-    BasicBlock* branch = case_branches[index];
-    inputs[index * 2 + 2 + 0] = g.TempImmediate(value);
-    inputs[index * 2 + 2 + 1] = g.Label(branch);
-  }
-  Emit(kArchLookupSwitch, 0, nullptr, input_count, inputs, 0, nullptr);
+  return EmitLookupSwitch(sw, value_operand);
 }
 
 
@@ -1089,6 +1242,24 @@ void InstructionSelector::VisitInt32SubWithOverflow(Node* node) {
   }
   FlagsContinuation cont;
   VisitBinop(this, node, kX87Sub, &cont);
+}
+
+
+void InstructionSelector::VisitFloat32Equal(Node* node) {
+  FlagsContinuation cont(kUnorderedEqual, node);
+  VisitFloat32Compare(this, node, &cont);
+}
+
+
+void InstructionSelector::VisitFloat32LessThan(Node* node) {
+  FlagsContinuation cont(kUnsignedGreaterThan, node);
+  VisitFloat32Compare(this, node, &cont);
+}
+
+
+void InstructionSelector::VisitFloat32LessThanOrEqual(Node* node) {
+  FlagsContinuation cont(kUnsignedGreaterThanOrEqual, node);
+  VisitFloat32Compare(this, node, &cont);
 }
 
 
@@ -1152,6 +1323,8 @@ void InstructionSelector::VisitFloat64InsertHighWord32(Node* node) {
 MachineOperatorBuilder::Flags
 InstructionSelector::SupportedMachineOperatorFlags() {
   MachineOperatorBuilder::Flags flags =
+      MachineOperatorBuilder::kFloat32Max |
+      MachineOperatorBuilder::kFloat32Min |
       MachineOperatorBuilder::kFloat64Max |
       MachineOperatorBuilder::kFloat64Min |
       MachineOperatorBuilder::kWord32ShiftIsSafe;
