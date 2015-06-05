@@ -851,7 +851,7 @@ void CodeGenerator::AssembleArchInstruction(Instruction* instr) {
     }
     case kX87Float64Abs: {
       __ fstp(0);
-      __ fld_s(MemOperand(esp, 0));
+      __ fld_d(MemOperand(esp, 0));
       __ fabs();
       __ lea(esp, Operand(esp, kDoubleSize));
       break;
@@ -1703,18 +1703,48 @@ void CodeGenerator::AssembleMove(InstructionOperand* source,
   } else if (source->IsDoubleRegister()) {
     DCHECK(destination->IsDoubleStackSlot());
     Operand dst = g.ToOperand(destination);
-    __ fst_d(dst);
+    auto allocated = AllocatedOperand::cast(*source);
+    switch (allocated.machine_type()) {
+      case kRepFloat32:
+        __ fst_s(dst);
+        break;
+      case kRepFloat64:
+        __ fst_d(dst);
+        break;
+      default:
+        UNREACHABLE();
+    }
   } else if (source->IsDoubleStackSlot()) {
     DCHECK(destination->IsDoubleRegister() || destination->IsDoubleStackSlot());
     Operand src = g.ToOperand(source);
+    auto allocated = AllocatedOperand::cast(*source);
     if (destination->IsDoubleRegister()) {
       // always only push one value into the x87 stack.
       __ fstp(0);
-      __ fld_d(src);
+      switch (allocated.machine_type()) {
+        case kRepFloat32:
+          __ fld_s(src);
+          break;
+        case kRepFloat64:
+          __ fld_d(src);
+          break;
+        default:
+          UNREACHABLE();
+      }
     } else {
       Operand dst = g.ToOperand(destination);
-      __ fld_d(src);
-      __ fstp_d(dst);
+      switch (allocated.machine_type()) {
+        case kRepFloat32:
+          __ fld_s(src);
+          __ fstp_s(dst);
+          break;
+        case kRepFloat64:
+          __ fld_d(src);
+          __ fstp_d(dst);
+          break;
+        default:
+          UNREACHABLE();
+      }
     }
   } else {
     UNREACHABLE();
